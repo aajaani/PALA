@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Thonny log analyser</title>
+  <link rel="shortcut icon" href="https://www.cs.ut.ee/sites/all/themes/ut_main/favicon.ico" type="image/vnd.microsoft.icon">
   <meta name="description" content="Thonny log analyser">
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
@@ -21,7 +22,7 @@
     <div class="container">
       <div class="input-group">
         <div class="custom-file">
-          <input type="file" class="custom-file-input" id="inputGroupFile04" accept=".txt" multiple>
+          <input type="file" class="custom-file-input" id="inputGroupFile04" multiple="multiple">
           <label class="custom-file-label" for="inputGroupFile04">Choose file</label>
         </div>
         <div class="input-group-append">
@@ -30,23 +31,45 @@
       </div>
       
       <div class="table-container d-none" id="general-info-table-c">
-        <h3 class='table-title text-center'>Üldinfo</h3>
-        <table class="table">
+        <table class="table" id='general-info-table'>
           <thead class="thead-light">
             <tr>
-              <th scope="col">Attribuut</th>
-              <th scope="col">Väärtus</th>
+              <th scope="colgroup" colspan="2">General Info</th>
             </tr>
           </thead>
           <tbody>
-  <!--           <tr>
-              <th scope="row">1</th>
-              <td>Mark</td>
-              <td>Otto</td>
-              <td>@mdo</td>
-            </tr> -->
           </tbody>
         </table>
+      </div>
+
+      <div class="butcollapse d-none" id='copiedTexts'>
+        <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste" role="button" aria-expanded="false" aria-controls="collapseExample">
+          Copy/Pasted texts
+        </a>
+        <div class="collapse" id="collapseCopyPaste">
+          <div class="card card-body">
+            <table class="table" id='tableCopyPaste'>
+              <tbody>
+                
+              </tbody>
+            </table>  
+          </div>
+        </div>
+      </div>
+
+      <div class="butcollapse d-none" id='errorTexts'>
+        <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors" role="button" aria-expanded="false" aria-controls="collapseExample">
+          Errors
+        </a>
+        <div class="collapse" id="collapseErrors">
+          <div class="card card-body">
+            <table class="table" id='tableErrors'>
+              <tbody>
+                
+              </tbody>
+            </table>  
+          </div>
+        </div>
       </div>
 
     </div>
