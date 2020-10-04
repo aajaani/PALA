@@ -1,7 +1,7 @@
 $(function() {
     console.log( "ready!" );
     $(".custom-file-input").on("change", function() {
-        var fileName = $(this).val().split("\\").pop();
+        var fileName = $(this).val().split("\\").pop(); 
         $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
       });
 
@@ -47,12 +47,16 @@ function analyse(jsonLog){
     var runCount=0;
     var copyPasteCount=0;
     var debugCount=0;
-    var filesCreated="";
+    //var filesCreated="";
+    var filesCreated=new Set();
+    var filesRan=new Set();
+    var filesOpened=new Set();
     var copiedTexts={};
     var errorTexts={};
     for(var i=0;i<jsonLog.length;i++){
         if(jsonLog[i].sequence==='ShellCommand' && jsonLog[i].command_text.slice(0,4)==='%Run'){
             runCount++;
+            filesRan.add(jsonLog[i].command_text.slice(5).replaceAll    ('\'',''));
         }
         if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Error')){
             errorCount++;
@@ -65,11 +69,17 @@ function analyse(jsonLog){
         if(jsonLog[i].sequence==='<<Paste>>' && jsonLog[i].text_widget_class==="CodeViewText"){
             copyPasteCount++;
             var date=getDate1(jsonLog[i-1].time)
-            copiedTexts[date]=jsonLog[i-1].text;
+            copiedTexts[date]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
         }
         if(jsonLog[i].sequence==='SaveAs'){
             var filename=jsonLog[i].filename.split('\\');
-            filesCreated+=filename[filename.length-1].concat('<br>');
+            //filesCreated+=filename[filename.length-1].concat('<br>');
+            filesCreated.add(filename[filename.length-1]);
+        }
+        if(jsonLog[i].sequence==='Open'){
+            var filename=jsonLog[i].filename.split('\\');
+            //filesCreated+=filename[filename.length-1].concat('<br>');
+            filesOpened.add(filename[filename.length-1]);
         }
     }
     
@@ -81,7 +91,9 @@ function analyse(jsonLog){
         'Error count':errorCount,
         'Copy-paste count':copyPasteCount,
         'Debug count':debugCount,
-        'Files created':filesCreated
+        'Files created':[...filesCreated].join('<br>'),
+        'Files ran':[...filesRan].join('<br>'),
+        'Files opened':[...filesOpened  ].join('<br>')
     }
 
     if($('#general-info-table-c').hasClass('d-none')){
