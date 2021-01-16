@@ -1,3 +1,18 @@
+/* Bootstrap Toggle v2.2.2 corrections for Bootsrtap 4*/
+.toggle-off {
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, .125);
+}
+.toggle.off {
+    border-color: rgba(0, 0, 0, .25);
+}
+
+.toggle-handle {
+    background-color: white;
+    border: thin rgba(0, 0, 0, .25) solid;
+}
+/* Bootstrap Toggle v2.2.2 corrections for Bootsrtap 4*/
+
+
 .main-nav{
     background-color: #1976d2;
 }
@@ -13,3 +28,37 @@
 .butcollapse{
     margin-bottom: 30px;
 }
+
+#input-types, #log-input-area, #log-button-div{
+    margin-bottom: 20px;
+}
+
+/* LOG INPUT */
+
+#log-input-area{
+    position: relative;
+}
+
+.log-input-msg,.log-input{ /* .log-input-area-msg */
+    height:200px;
+    width:100%;
+    border: 3px dashed #1976d2;
+    border-radius: 5%; 
+}
+
+.log-input{
+    cursor:pointer;
+    opacity: 0;
+}
+
+.log-input-msg{ /* .log-input-area-msg */
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    position:absolute;
+    top: 0;
+    z-index: -1;
+}
+
+/* LOG INPUT */
