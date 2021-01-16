@@ -10,76 +10,81 @@
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
   <link rel="stylesheet" href="css/styles.css">
+  <!--  Bootstrap Toggle -->
+  <link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet">
+  <!-- Icon library -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 
 <body>
   <div class="main">
     <div class="nav">
       <nav class="navbar fixed-top navbar-dark main-nav" role="navigation">
-        <a class="navbar-brand  " href="#">Home</a>
+        <a class="navbar-brand  " href="./">Home</a>
       </nav>
     </div>
     <div class="container">
-      <div class="input-group">
-        <div class="custom-file">
-          <input type="file" class="custom-file-input" id="inputGroupFile04" multiple="multiple">
-          <label class="custom-file-label" for="inputGroupFile04">Choose file</label>
-        </div>
-        <div class="input-group-append">
-          <button class="btn btn-outline-secondary" type="button">Analyze</button>
-        </div>
-      </div>
       
-      <div class="table-container d-none" id="general-info-table-c">
-        <table class="table" id='general-info-table'>
-          <thead class="thead-light">
-            <tr>
-              <th scope="colgroup" colspan="2">General Info</th>
-            </tr>
-          </thead>
-          <tbody>
-          </tbody>
-        </table>
-      </div>
+      <button id="expand-choose-logs" class="btn btn-outline-dark btn-block collapse" type="button">
+        <i class="fa fa-angle-double-down fa-lg"></i>
+        Analyse
+        <i class="fa fa-angle-double-down fa-lg"></i>
+      </button>
 
-      <div class="butcollapse d-none" id='copiedTexts'>
-        <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste" role="button" aria-expanded="false" aria-controls="collapseExample">
-          Copy/Pasted texts
-        </a>
-        <div class="collapse" id="collapseCopyPaste">
-          <div class="card card-body">
-            <table class="table" id='tableCopyPaste'>
-              <tbody>
-                
-              </tbody>
-            </table>  
-          </div>
+      <div id="choose-logs" class="collapse show">
+        <div class='analysis-type d-flex justify-content-center align-items-center' id="input-types">
+          <input id="input-analysis-type" type="checkbox" checked data-toggle="toggle" data-on="Single student analysis" data-off="Multiple student analysis" data-offstyle="info">
+          <div class="mx-2"></div>
+          <input id="input-log-type" type="checkbox" checked data-toggle="toggle" data-on="File input" data-off="Folder input" data-offstyle="info">
         </div>
-      </div>
 
-      <div class="butcollapse d-none" id='errorTexts'>
-        <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors" role="button" aria-expanded="false" aria-controls="collapseExample">
-          Errors
-        </a>
-        <div class="collapse" id="collapseErrors">
-          <div class="card card-body">
-            <table class="table" id='tableErrors'>
-              <tbody>
-                
-              </tbody>
-            </table>  
+        <div class="log-input-container">
+          <div id="log-input-area">
+            <input id="file-input" class="log-input" type="file" multiple>
+            <input id="folder-input" class="log-input d-none" type="file" webkitdirectory directory multiple>
+            <div class="log-input-msg">
+              <h4 id="log-input-file-msg" class="log-input-area-msg"> <b>Drag</b> or <b>Click</b> inside the area to choose log file(s) or zip-files to be analysed</h4>
+            </div>
+            <div class="log-input-msg d-none">
+              <h4 id="log-input-folder-msg" class="log-input-area-msg"><b>Drag</b> or <b>Click</b> inside the area to choose folder(s) containing log files to be analysed</h4>
+            </div>
+          </div>
+          <div class="button-input-container" id="log-button-div">
+            <button class="btn btn-dark btn-lg" type="button" id="log-button" >
+              <i class="fa fa-bar-chart"></i>
+              Analyze
+            </button>
           </div>
         </div>
       </div>
 
     </div>
-  </div>
+
+    <div id="log-analysis">
+      <div class="row">
+        <div class="col-3">
+          <div id='log-analysis-groups' class="list-group" role="tablist">
+
+          </div>
+        </div>
+        <div class="col-9">
+          <div id='log-analysis-results' class="tab-content" >
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  
 
 
   <!-- jQuery first, then Popper.js, then Bootstrap JS -->
   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+  <!--  Bootstrap Toggle -->
+<!--   <link href="https://gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css" rel="stylesheet"> -->
+  <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
   <!-- my JavaScript -->
   <script src="js/scripts.js"></script>
 </body>
