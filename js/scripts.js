@@ -1,39 +1,153 @@
 $(function() {
     console.log( "ready!" );
-    $(".custom-file-input").on("change", function() {
-        var fileName = $(this).val().split("\\").pop(); 
-        $(this).siblings(".custom-file-label").addClass("selected").html(fileName);
-      });
 
     addListeners();
 });
 
+/** adds listeners to html elements
+ * 
+ *  */ 
 function addListeners(){
-    $(".input-group-append").click(fileSubmit);
+    $("#log-button").click(fileSubmit); //clicked on analyse button
+    $("#input-log-type").change(toggleLogArea); //toggled file input
+    $(".log-input").change(showLogInputData); //file or folder chosen then shown in log input area
+    $("#expand-choose-logs").click(toggleChooseLogs); 
 }
 
+/** toggles log choosing area
+ * 
+ */
+function toggleChooseLogs(){
+
+    if(this.id==="expand-choose-logs"){ //expand
+        $("#choose-logs").collapse('show'); 
+        $("#expand-choose-logs").collapse('hide');
+    }else{ //collapse
+        $("#choose-logs").collapse('hide'); 
+        $("#expand-choose-logs").collapse('show');
+    }
+}
+
+/** shows text of how many files chosen
+ * 
+ */
+function showLogInputData(){
+    var logTypeFile=$("#input-log-type")[0].checked;
+    var lenFiles=$(this)[0].files.length;
+
+    if(logTypeFile){//file
+        $("#log-input-file-msg").text(lenFiles+' files chosen.');
+    }else{//folder
+        $("#log-input-folder-msg").text(lenFiles+' files present in selected folder.');
+    }
+}
+
+/**switches list item
+ * 
+ */
+function switchListItem(keyEvent){
+    if (keyEvent.which===9){
+        $(this).tab('show');
+    }
+}
+
+/**
+ * toggle file input and text inside based on file input checkbox
+ */
+function toggleLogArea(){
+    $(".log-input-msg").toggleClass('d-none');
+    $(".log-input").toggleClass('d-none');
+
+}
+
+/**
+ * clear previously analysed results
+ */
+function clearAnalysisResults(){
+    $('#log-analysis-groups').children().remove();
+    $('#log-analysis-results').children().remove();
+}
+
+/**
+ * Analyse button was clicked
+ */
 function fileSubmit(){
-    if(this.previousElementSibling.firstElementChild.value==''){
-        alert("Enter text file!");
+    var logTypeFile=$("#input-log-type")[0].checked;
+    var typeOfAnalysis=$("#input-analysis-type")[0].checked;
+    if( logTypeFile){ //File input
+        var logInput = $("#file-input");
+    }else{ //Folder input
+        var logInput = $("#folder-input");
+    }
+
+    if( logInput.val()==''){
+        alert("No file entered!");
         return;
     }
-    readTxtFile(this.previousElementSibling.firstElementChild.files[0]);
+    clearAnalysisResults();
+    toggleChooseLogs();
+
+    if (typeOfAnalysis){ //Single student analysis
+        for(i=0;i<logInput[0].files.length;i++){
+            if (logInput[0].files[i].type==='text/plain'){ //if text file
+                addLogAnalysisEntry( i, logInput[0].files[i]);
+            }
+        }
+    }
+    
+    $(".list-group-item").keyup(switchListItem); //switches list items
 }
 
-function readTxtFile(file){
+/**creates list groups tab and panel
+ * 
+ * @param {String or Integer} entryId marks unique id for list groups defining attributes
+ */
+function addLogAnalysisEntry( entryId, file){
+    var tabList = $("#log-analysis-groups");
+    var tabPanel = $("#log-analysis-results");
+    setActive="";
+    setActivePanel="";
+    fileSize=`${Math.round(file.size/1000)}kb`;
+    fileName=file.name;
+    if (file.webkitRelativePath!=""){
+        fileName=file.webkitRelativePath
+    }
+    if(tabList[0].childElementCount===0){//first entry
+        setActive="active";    
+        setActivePanel="show active";
+    }
+    var newTabListElement = `<a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${setActive}" 
+                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}">${fileName} 
+                            <span class="badge badge-primary badge-pill">${fileSize}</span></a>`;
+    var panelId=`list-${entryId}`;
+    var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
+    tabList.append(newTabListElement);
+    tabPanel.append(newTabPanelElement);
+    readTxtFile( file, panelId, entryId);
+}
+
+/**
+ * 
+ * @param {file object} file - reads the file 
+ */
+function readTxtFile(file, panelId, entryId){
     if(file.type==='text/plain'){
         const reader = new FileReader();
         reader.readAsText(file);
         reader.addEventListener('load', (event) => {
             const result = event.target.result;
-            analyse(JSON.parse(result));
+            analyse(JSON.parse(result), panelId, entryId);
           });
     }else{
         alert("Enter text file!");
     }
 }
 
-function analyse(jsonLog){
+/**
+ * 
+ * @param {JSON object} jsonLog -extracts info from
+ */
+function analyse(jsonLog, panelId, entryId){
     const startTime=new Date(jsonLog[0].time);
     const endTime=new Date(jsonLog[jsonLog.length-1].time);
     const elapsedDate=new Date(endTime-startTime);
@@ -58,7 +172,7 @@ function analyse(jsonLog){
             runCount++;
             filesRan.add(jsonLog[i].command_text.slice(5).replaceAll    ('\'',''));
         }
-        if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Error')){
+        if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Error') && jsonLog[i].text_widget_class==="ShellText"){
             errorCount++;
             var date=getDate1(jsonLog[i].time)
             errorTexts[date]=jsonLog[i].text;
@@ -73,14 +187,13 @@ function analyse(jsonLog){
         }
         if(jsonLog[i].sequence==='SaveAs'){
             var filename=jsonLog[i].filename.split('\\');
-            //filesCreated+=filename[filename.length-1].concat('<br>');
             filesCreated.add(filename[filename.length-1]);
         }
         if(jsonLog[i].sequence==='Open'){
             var filename=jsonLog[i].filename.split('\\');
-            //filesCreated+=filename[filename.length-1].concat('<br>');
             filesOpened.add(filename[filename.length-1]);
         }
+
     }
     
     var generalInfo={
@@ -96,20 +209,67 @@ function analyse(jsonLog){
         'Files opened':[...filesOpened  ].join('<br>')
     }
 
-    if($('#general-info-table-c').hasClass('d-none')){
-        $('#general-info-table-c').removeClass('d-none');
-    }
-    if($('#copiedTexts').hasClass('d-none')){
-        $('#copiedTexts').removeClass('d-none');
-    }
-    if($('#errorTexts').hasClass('d-none')){
-        $('#errorTexts').removeClass('d-none');
-    }
-    displayDataTable('general-info-table',generalInfo);
-    displayDataTable('tableCopyPaste',copiedTexts);
-    displayDataTable('tableErrors',errorTexts);
+    var idGeneralInfo=`tableGeneralInfo-${entryId}`;
+    var idCopyPaste=`tableCopyPaste-${entryId}`;
+    var idErrors=`tableErrors-${entryId}`;
+
+    var tableGeneralInfo=`
+                <div class="table-container" id="general-info-block">
+                    <table class="table" id='${idGeneralInfo}'>
+                        <thead class="thead-light">
+                            <tr>
+                            <th scope="colgroup" colspan="2">General Info</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>`;
+    var tableCopyPaste=`
+            <div class="butcollapse" id='copiedTexts-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste-${entryId}" role="button" aria-expanded="false" aria-controls="collapseCopyPaste-${entryId}">
+                Copy/Pasted texts
+                </a>
+                <div class="collapse" id="collapseCopyPaste-${entryId}">
+                    <div class="card card-body">
+                        <table class="table" id='${idCopyPaste}'>
+                        <tbody>
+                            
+                        </tbody>
+                        </table>  
+                    </div>
+                </div>
+            </div>`;
+    var tableErrors=`
+            <div class="butcollapse" id='errorTexts-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors-${entryId}" role="button" aria-expanded="false" aria-controls="collapseErrors-${entryId}">
+                Errors
+                </a>
+                <div class="collapse" id="collapseErrors-${entryId}">
+                    <div class="card card-body">
+                        <table class="table" id='${idErrors}'>
+                        <tbody>
+                            
+                        </tbody>
+                        </table>  
+                    </div>
+                </div>
+            </div>`;
+
+    $('#'+panelId).append(tableGeneralInfo);
+    $('#'+panelId).append(tableCopyPaste);
+    $('#'+panelId).append(tableErrors);
+
+    displayDataTable(idGeneralInfo,generalInfo);
+    displayDataTable(idCopyPaste,copiedTexts);
+    displayDataTable(idErrors,errorTexts);
 }
 
+/** displays the data given to a table with id given
+ * 
+ * @param {string} tableId 
+ * @param {json object} data 
+ */
 function displayDataTable(tableId,data){
     const tbody=$('#'+tableId+" tbody");
     tbody.empty();
@@ -122,6 +282,10 @@ function displayDataTable(tableId,data){
     }
 }
 
+/**
+ * 
+ * @param {Date} date 
+ */
 function getDate1(date){
     return new Date(date).toLocaleString('en-GB');
 }
