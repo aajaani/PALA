@@ -2,7 +2,17 @@ $(function() {
     console.log( "ready!" );
 
     addListeners();
+
+    intializeSidebar();
 });
+
+function intializeSidebar(){
+
+    $("#sidebar").mCustomScrollbar({
+      theme: "minimal"
+      });
+
+}
 
 /** adds listeners to html elements
  * 
@@ -12,6 +22,23 @@ function addListeners(){
     $("#input-log-type").change(toggleLogArea); //toggled file input
     $(".log-input").change(showLogInputData); //file or folder chosen then shown in log input area
     $("#expand-choose-logs").click(toggleChooseLogs); 
+    $('#sidebarCollapse').click(toggleSidebar);
+}
+
+/**
+ * toggles sidebar
+ */
+function toggleSidebar(){
+    $('#sidebar, #content').toggleClass('active');
+
+}
+
+/**
+ * displays sidebar
+ */
+function showSidebar(){
+    $('#sidebar, #content').addClass('active');
+
 }
 
 /** toggles log choosing area
@@ -19,13 +46,20 @@ function addListeners(){
  */
 function toggleChooseLogs(){
 
-    if(this.id==="expand-choose-logs"){ //expand
-        $("#choose-logs").collapse('show'); 
-        $("#expand-choose-logs").collapse('hide');
+    var goToTop=!$("#choose-logs").hasClass("show");
+
+    $("#choose-logs").collapse('toggle');
+
+    if (goToTop){
+        $(window).scrollTop(0);
+    }
+    
+/*     if(this.id==="expand-choose-logs"){ //expand
+        $("#choose-logs").collapse('toggle');
     }else{ //collapse
         $("#choose-logs").collapse('hide'); 
         $("#expand-choose-logs").collapse('show');
-    }
+    } */
 }
 
 /** shows text of how many files chosen
@@ -46,8 +80,19 @@ function showLogInputData(){
  * 
  */
 function switchListItem(keyEvent){
+    if (!$("#input-analysis-type")[0].checked){ //Multiple student analysis
+        $('.failid').removeClass('active');   
+    }
+    $(".tab-pane").removeClass('active show');   
+
     if (keyEvent.which===9){
         $(this).tab('show');
+    }
+}
+
+function switchFolder(keyEvent){
+    if (keyEvent.which===9){
+        $(this).click();
     }
 }
 
@@ -73,7 +118,7 @@ function clearAnalysisResults(){
  */
 function fileSubmit(){
     var logTypeFile=$("#input-log-type")[0].checked;
-    var typeOfAnalysis=$("#input-analysis-type")[0].checked;
+
     if( logTypeFile){ //File input
         var logInput = $("#file-input");
     }else{ //Folder input
@@ -86,44 +131,151 @@ function fileSubmit(){
     }
     clearAnalysisResults();
     toggleChooseLogs();
+    showSidebar();
 
-    if (typeOfAnalysis){ //Single student analysis
-        for(i=0;i<logInput[0].files.length;i++){
-            if (logInput[0].files[i].type==='text/plain'){ //if text file
-                addLogAnalysisEntry( i, logInput[0].files[i]);
-            }
+    for(i=0;i<logInput[0].files.length;i++){
+        if (logInput[0].files[i].type==='text/plain'){ //if text file
+            addLogAnalysisEntry( i, logInput[0].files[i]);
+        }else if (logInput[0].files[i].type==='application/x-zip-compressed'){ //if zip file
+            parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
         }
     }
-    
-    $(".list-group-item").keyup(switchListItem); //switches list items
+
 }
 
-/**creates list groups tab and panel
+
+function parseZipFile(entryId, zipFile, path=''){
+    var new_zip = new JSZip(); //new instance
+    new_zip.loadAsync(zipFile)
+    .then(function(zip) {
+        var files = zip.file(/.*/); //all files in array ZipObjects
+        for (let i=0;i<files.length;i++){
+            if( RegExp('\.txt').test(files[i].name)){ //text file
+                addLogAnalysisEntry(entryId+'-'+i,files[i],true, path);
+            }else if(RegExp('\.zip').test(files[i].name)){
+                files[i].async("blob")
+                .then(function (file) {
+                    if(path!==''){
+                        path+='/';
+                    }
+                    parseZipFile(entryId+'-'+i, file, path+files[i].name);
+                });
+            }
+        }
+    });
+}
+
+/**creates list groups tab and panel Single student analysis
  * 
  * @param {String or Integer} entryId marks unique id for list groups defining attributes
  */
-function addLogAnalysisEntry( entryId, file){
+function addLogAnalysisEntry( entryId, file, isZipObject = false, path=''){
     var tabList = $("#log-analysis-groups");
     var tabPanel = $("#log-analysis-results");
+    var typeOfAnalysis=$("#input-analysis-type")[0].checked;
+
     setActive="";
     setActivePanel="";
-    fileSize=`${Math.round(file.size/1000)}kb`;
-    fileName=file.name;
-    if (file.webkitRelativePath!=""){
+    if (isZipObject){
+        fileSize=`${Math.round(file._data.uncompressedSize/1024)}KB`;  
+    }else{
+        fileSize=`${Math.round(file.size/1024)}KB`;
+    }
+    if(path!==''){
+        path+='/';
+    }
+    fileName=path+file.name;
+    if (!isZipObject && file.webkitRelativePath!=""){
         fileName=file.webkitRelativePath
     }
     if(tabList[0].childElementCount===0){//first entry
         setActive="active";    
         setActivePanel="show active";
     }
-    var newTabListElement = `<a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center ${setActive}" 
-                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}">${fileName} 
-                            <span class="badge badge-primary badge-pill">${fileSize}</span></a>`;
+    fileName=fileName.replaceAll('_','-');
+    var newTabListElement = `<a class="list-group-item list-group-item-action failid ${setActive}" 
+                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}">
+                            <span class="badge badge-primary badge-pill">${fileSize}</span><br>${fileName}</a>`;
     var panelId=`list-${entryId}`;
     var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
+
+    if (!typeOfAnalysis){ //Multiple student analysis
+        if(tabList[0].childElementCount===0){//first entry
+            var accordion=`<div class="accordion" id="multiple-student-list"></div>`;
+            tabList.append(accordion);
+        }
+        
+        if(fileName.split('/').length>1 ){
+            tabList=$('#multiple-student-list');
+            
+            var firstFolderIndex=0;
+            if(!$("#input-log-type")[0].checked){
+                firstFolderIndex=1;
+            }
+            firstFolder=fileName.split('/')[firstFolderIndex];  //accordion list element id
+            var firstFolderName=firstFolder;
+
+            firstFolderList=firstFolder.split(' ');
+            if (firstFolderList.length>1){
+                var firstFolderName=firstFolderList[0] + ' ' + firstFolderList[1].split('-')[0]; //list element name
+            }
+
+            var folderNameId=firstFolderName.replaceAll(/ |\./ig,'-')
+            var multipleStudentId=`student-${firstFolder.replaceAll(/ |\./ig,'-')}`;
+
+            if( $('#'+multipleStudentId).length===0){
+                var show = '';
+                var expanded = 'false';
+                if( $('.list-group-item').length===0){ //first element expanded
+                    show = 'show';
+                    expanded = 'true';
+                }
+                var studentListElementName=`<a id="${folderNameId}" class="btn list-group-item list-group-item-action student-name" data-toggle="collapse" data-target="#${multipleStudentId}" aria-expanded="${expanded}" aria-controls="${multipleStudentId}" tabindex="0">
+                                                    ${firstFolderName}
+                                                </a>`;
+                var studentListElementPanel=`<div id="${multipleStudentId}" class="collapse ${show}" aria-labelledby="${firstFolderName}" data-parent="#multiple-student-list">
+                                            </div>`;
+                tabList.append(studentListElementName);
+                tabList.append(studentListElementPanel);
+            }
+            tabList=$('#'+multipleStudentId);
+            $('#'+folderNameId).keyup(switchFolder);
+        }
+    }
+
     tabList.append(newTabListElement);
     tabPanel.append(newTabPanelElement);
-    readTxtFile( file, panelId, entryId);
+    if (isZipObject){
+        readZipObject(file, panelId, entryId);
+    }else{
+        readTxtFile( file, panelId, entryId);
+    }
+    
+    $(`#list-${entryId}-list`).keyup(switchListItem); //adds event that switches list items when tab pressed
+    if (!typeOfAnalysis){ //Multiple student analysis
+        $(`#list-${entryId}-list`).click(switchListItem);
+    }
+
+    if(tabList[0].childElementCount===1){
+        $('.failid').first().focus();
+    }
+}
+
+/**
+ * 
+ * @param {ZipObject} file - reads the string
+ * @param {String} panelId - id of panel where to add analysation content 
+ * @param {String} entryId - id of file analysed
+ */
+function readZipObject(file, panelId, entryId){
+    file.async("string")
+    .then(function success(text) {
+        try {
+        analyse(JSON.parse(text), panelId, entryId);
+        } catch (e){
+            return;
+        }
+    });
 }
 
 /**
@@ -136,7 +288,11 @@ function readTxtFile(file, panelId, entryId){
         reader.readAsText(file);
         reader.addEventListener('load', (event) => {
             const result = event.target.result;
+            try{
             analyse(JSON.parse(result), panelId, entryId);
+            } catch (e){
+                return;
+            }
           });
     }else{
         alert("Enter text file!");
@@ -161,7 +317,6 @@ function analyse(jsonLog, panelId, entryId){
     var runCount=0;
     var copyPasteCount=0;
     var debugCount=0;
-    //var filesCreated="";
     var filesCreated=new Set();
     var filesRan=new Set();
     var filesOpened=new Set();
@@ -228,7 +383,7 @@ function analyse(jsonLog, panelId, entryId){
     var tableCopyPaste=`
             <div class="butcollapse" id='copiedTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste-${entryId}" role="button" aria-expanded="false" aria-controls="collapseCopyPaste-${entryId}">
-                Copy/Pasted texts
+                Copy/Pasted texts (${copyPasteCount})
                 </a>
                 <div class="collapse" id="collapseCopyPaste-${entryId}">
                     <div class="card card-body">
@@ -243,7 +398,7 @@ function analyse(jsonLog, panelId, entryId){
     var tableErrors=`
             <div class="butcollapse" id='errorTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors-${entryId}" role="button" aria-expanded="false" aria-controls="collapseErrors-${entryId}">
-                Errors
+                Errors (${errorCount})
                 </a>
                 <div class="collapse" id="collapseErrors-${entryId}">
                     <div class="card card-body">
@@ -275,7 +430,6 @@ function displayDataTable(tableId,data){
     tbody.empty();
     for(const key in data){
         if(Array.isArray(data[key])){
-            console.log('jap');
             continue;
         }
         tbody.append('<tr><td>'.concat(key,'</td><td>',data[key],'</td></tr>'));
