@@ -12,17 +12,123 @@
 }
 /* Bootstrap Toggle v2.2.2 corrections for Bootsrtap 4*/
 
+/* SIDEBAR */
+/*
+    DEMO STYLE
+*/
 
-.main-nav{
-    background-color: #1976d2;
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #fafafa;
 }
 
-.nav{
-    height:70px;
+
+.navbar {
+    padding: 15px 10px;
+    background: #fff;
+    border: none;
+    border-radius: 0;
+    margin-bottom: 20px;
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
 }
+
+.navbar{
+    position: -webkit-sticky; /* Safari */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+
+/* ---------------------------------------------------
+    SIDEBAR STYLE
+----------------------------------------------------- */
+
+.wrapper {
+    display: flex;
+    width: 100%;
+}
+
+#sidebar {
+    width: 250px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 999;
+    background: #eaedfc;
+    color: #fff;
+    transition: all 0.3s;
+    margin-left: -250px;
+}
+
+#sidebar.active {
+    margin-left: 0px;
+}
+
+#sidebar .sidebar-header {
+    padding: 20px;
+    background: #6d7fcc;
+}
+
+/* ---------------------------------------------------
+    CONTENT STYLE
+----------------------------------------------------- */
+
+#content {
+    width: 100%;
+    padding: 40px;
+    min-height: 100vh;
+    transition: all 0.3s;
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+#content.active {
+    width: calc(100% - 250px);
+}
+
+/* ---------------------------------------------------
+    MEDIAQUERIES
+----------------------------------------------------- */
+
+@media (max-width: 768px) {
+    #sidebar {
+        margin-left: -250px;
+    }
+    #sidebar.active {
+        margin-left: 0;
+    }
+    #content {
+        width: 100%;
+    }
+    #content.active {
+        width: calc(100% - 250px);
+    }
+/*     #sidebarCollapse span {
+        display: none;
+    } */
+}
+
+
+.mCSB_dragger_bar,.mCSB_scrollTools .mCSB_dragger{
+    z-index: 2000 !important;
+}
+.mCSB_dragger_bar{
+    background-color: #61626b !important;
+}
+/* SIDEBAR --end */
+
+.list-group-item{
+    padding-left: 4px;
+    /* padding-right: 80%; */
+    font-size: 14px;
+}
+
 
 .table-container{
-    margin: 30px 0px;
+    margin-bottom: 30px;
 }
 
 .butcollapse{
@@ -30,7 +136,7 @@
 }
 
 #input-types, #log-input-area, #log-button-div{
-    margin-bottom: 20px;
+    margin-bottom: 20px;    
 }
 
 /* LOG INPUT */
@@ -62,3 +168,14 @@
 }
 
 /* LOG INPUT */
+
+pre{
+    white-space: pre-wrap;
+    font-family: 'Ubuntu' !important;  
+}
+
+.student-name{
+    font-weight: bold;
+    font-size: 18px;
+    border-left: 10px solid #4056b6;
+}
