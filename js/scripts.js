@@ -1,3 +1,8 @@
+var supportedArchiveTypes=['application/x-zip-compressed'
+                            ,'application/zip'
+                            ,'application/x-tar'
+                            ,'application/x-7z-compressed'
+                            ,'application/x-rar-compressed'];
 $(function() {
     console.log( "ready!" );
 
@@ -136,7 +141,7 @@ function fileSubmit(){
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain'){ //if text file
             addLogAnalysisEntry( i, logInput[0].files[i]);
-        }else if (logInput[0].files[i].type==='application/x-zip-compressed'){ //if zip file
+        }else if (supportedArchiveTypes.includes(logInput[0].files[i].type)){ //if zip file
             parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
         }
     }
