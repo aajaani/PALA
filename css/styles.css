@@ -49,24 +49,28 @@ body {
     width: 100%;
 }
 
-#sidebar {
-    width: 250px;
+.sidebar {
     position: fixed;
     top: 0;
     left: 0;
     height: 100vh;
     z-index: 999;
-    background: #eaedfc;
-    color: #fff;
     transition: all 0.3s;
-    margin-left: -250px;
 }
 
-#sidebar.active {
+.sidebar-main{
+    width: 250px;
+    margin-left: -250px;
+    background: #eaedfc;
+    color: #fff;
+}
+
+
+.sidebar.active {
     margin-left: 0px;
 }
 
-#sidebar .sidebar-header {
+.sidebar .sidebar-header {
     padding: 20px;
     background: #6d7fcc;
 }
@@ -75,7 +79,7 @@ body {
     CONTENT STYLE
 ----------------------------------------------------- */
 
-#content {
+.content {
     width: 100%;
     padding: 40px;
     min-height: 100vh;
@@ -85,7 +89,7 @@ body {
     right: 0;
 }
 
-#content.active {
+.content.active {
     width: calc(100% - 250px);
 }
 
@@ -94,16 +98,16 @@ body {
 ----------------------------------------------------- */
 
 @media (max-width: 768px) {
-    #sidebar {
+    .sidebar {
         margin-left: -250px;
     }
-    #sidebar.active {
+    .sidebar.active {
         margin-left: 0;
     }
-    #content {
+    .content {
         width: 100%;
     }
-    #content.active {
+    .content.active {
         width: calc(100% - 250px);
     }
 /*     #sidebarCollapse span {
@@ -178,4 +182,140 @@ pre{
     font-weight: bold;
     font-size: 18px;
     border-left: 10px solid #4056b6;
+}
+
+/* ---------------------------------------------------
+    REPLAYER MODAL
+----------------------------------------------------- */
+
+.modal-dialog{
+    margin: auto;
+    max-width: 95%;
+}
+
+.modal-content{
+    height: 95vh;
+    margin-top: 2.5vh;  
+}
+
+.modal-main, .modal-sidebar,
+.modal-main-content, .modal-body{
+    height: 100%;
+}
+
+.modal-sidebar{
+    width: 250px;
+    padding: 0px !important;
+}
+
+.modal-main-content{
+    padding-top: 0px !important;
+    width: calc(100% - 200px);
+}
+
+@media (max-width: 768px) {
+    .modal-sidebar{
+        width: 150px;
+    }
+
+    .modal-sidebar-header{
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .modal-main-content{
+        width: calc(100% - 100px);
+    }
+}
+
+
+.modal-sidebar{
+    padding-right:10px;
+}
+
+
+#modal-sidebar-event-list,#modal-main-ide{
+    height: 60%;
+}
+
+
+#modal-sidebar-event-data-list,#modal-main-shell{
+    height: 30%;
+}
+
+.modal-upper{
+    min-height: 5%;
+    max-height: 20%;
+}
+
+.scroll{
+    overflow: scroll;
+}
+
+.scroll-y{
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+.scroll-y-auto{
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.scroll-auto{
+    overflow: auto;
+}
+
+.event-list{
+    font-size: 10px;
+    height: 100%;
+  }
+
+.event-row:hover{
+    background-color: #d3d3d3;
+    cursor: pointer;
+}
+
+.event-list-row.active{
+    background-color: #a9b5e9;
+}
+
+.modal-body, .spacer{
+    background-color: #e9e9e9;
+}
+
+.modal-middle, .modal-bottom{
+    background-color: #fefefe;
+    border: 0.5px solid #d6d6d6;
+}
+
+.file, .file-shell{
+    border: 1px solid #b1b1b1;
+    height: 50%;
+    padding: 2px !important;
+}
+
+.file.active, .file-shell.active{
+    background-color: #f8f8f8;
+}
+
+.file-shell{
+    display: inline;
+    padding: 0px 5px;
+}
+
+.modal-sidebar .row{
+    margin:0px;
+}
+
+.modal-sidebar div{
+    padding: 0px;
+}
+
+.event-row div{
+    padding: 3px;
+}
+
+pre code{
+    font-size: 12px;
 }

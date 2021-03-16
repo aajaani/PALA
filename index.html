@@ -16,12 +16,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
   <!-- Scrollbar Custom CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/malihu-custom-scrollbar-plugin/3.1.5/jquery.mCustomScrollbar.min.css">
+  <!-- HighlightJs -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.6.0/styles/a11y-light.min.css" integrity="sha512-PW96n2amVglidqEDLPUdjJ0zByhT20poSqWJYZRutR6CP2QH58k96WmorqNnC4QXnosNeqMJM8FR/93isIifDQ==" crossorigin="anonymous" />
 </head>
 
 <body>
   <div class="wrapper">
     <!-- Sidebar -->
-    <nav id="sidebar">
+    <div class="sidebar sidebar-main scroll-y">
       <div class="sidebar-header">
           <h3>Analysed files</h3>
       </div>
@@ -30,9 +32,9 @@
         <a class="list-group-item list-group-item-action">No files analysed</a>
 
       </div>
-    </nav>
+    </div>
     
-    <div id="content">
+    <div class="content">
 
       <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
@@ -93,19 +95,177 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="replayerModal" tabindex="-1" role="dialog" aria-labelledby="replayerModal" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <div class="d-flex flex-row modal-main">
+            <div class="p-2 modal-sidebar">
+             
+              <div class="modal-sidebar-header">
+                <div class="row modal-upper">
+                  <div class="col-6">Event</div>
+                  <div class="col-6">Pause (sec)</div>
+                </div>
+              </div>
+
+              <!-- <div class="modal-sidebar-events"> -->
+
+                
+                <div id="modal-sidebar-event-list" class="event-list modal-middle scroll-y">
+                    <!--  delete -->
+                    
+                        <div id="event-list-row-0" class="row event-row event-list-row" data-logfile-object-index="0" tabindex="0">
+                          <div class="col-7 event-list-name">ShowView</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-1" class="row event-row event-list-row" data-logfile-object-index="1" tabindex="0">
+                          <div class="col-7 event-list-name">ShowView</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-2" class="row event-row event-list-row" data-logfile-object-index="2" tabindex="0">
+                          <div class="col-7 event-list-name">EditorTextCreated</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-3" class="row event-row event-list-row" data-logfile-object-index="3" tabindex="0">
+                          <div class="col-7 event-list-name">Open</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-4" class="row event-row event-list-row" data-logfile-object-index="4" tabindex="0">
+                          <div class="col-7 event-list-name">TextDelete</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-5" class="row event-row event-list-row" data-logfile-object-index="5" tabindex="0">
+                          <div class="col-7 event-list-name">TextInsert</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-6" class="row event-row event-list-row" data-logfile-object-index="6" tabindex="0">
+                          <div class="col-7 event-list-name">ShowView</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                      
+                      <div id="event-list-row-7" class="row event-row event-list-row" data-logfile-object-index="7" tabindex="0">
+                          <div class="col-7 event-list-name">ShowView</div>
+                          <div class="col-4 event-list-sec"></div>
+                      </div>
+                    <!--  delete -->
+                </div>
+              
+
+              <div id="modal-sidebar-event-data-header" class="modal-sidebar-header">
+                <div class="row">
+                  <div class="col-6">Attribute</div>
+                  <div class="col-6">Value</div>
+                </div>
+              </div>
+
+
+                <div id="modal-sidebar-event-data-list" class="event-list modal-bottom scroll-auto">
+                    <!--  delete -->
+                    
+                    <div class="row event-row">
+                      <div class="col-6">index</div>
+                      <div class="col-6">10.0</div>
+                  </div>    
+                  
+                  <div class="row event-row">
+                      <div class="col-6">text</div>
+                      <div class="col-6">            </div>
+                  </div>    
+                  
+                  <div class="row event-row">
+                      <div class="col-6">tags</div>
+                      <div class="col-6">None</div>
+                  </div>    
+                  
+                  <div class="row event-row">
+                      <div class="col-6">text_widget_id</div>
+                      <div class="col-6">84266576</div>
+                  </div>    
+                  
+                  <div class="row event-row">
+                      <div class="col-6">text_widget_class</div>
+                      <div class="col-6">CodeViewText</div>
+                  </div>    
+                  
+                  <div class="row event-row">
+                      <div class="col-6">sequence</div>
+                      <div class="col-6">TextInsert</div>
+                  </div>    
+                  
+                  <div class="row event-row">
+                      <div class="col-6">time</div>
+                      <div class="col-6">2020-11-09T14:00:54.996320</div>
+                  </div>
+                    <!--  delete -->
+                </div>
+
+              
+        
+            </div>
+            <div class="p-2 modal-main-content">
+              <div id="modal-main-header" class="d-flex flex-wrap modal-upper scroll-y-auto">
+                <!--  delete -->
+                <div class="p-2 file ">easygui.py</div><div class="p-2 file active">&lt;untitled&gt;</div>
+                <!--  delete -->
+              </div>
+              <div id="modal-main-ide" class="modal-middle scroll-auto">
+                <pre><code id="modal-program-text" class="python">
+nimi = <span class="hljs-built_in">str</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">"Sisesta failinimi: "</span>))
+fail = <span class="hljs-built_in">open</span>(nimi,encoding=<span class="hljs-string">"UTF-8"</span>)
+
+<span class="hljs-keyword">for</span> rida <span class="hljs-keyword">in</span> fail:
+    <span class="hljs-keyword">for</span> arv <span class="hljs-keyword">in</span> rida:
+        <span class="hljs-keyword">if</span> arv == <span class="hljs-string">"3"</span>
+            print(<span class="hljs-string">"Ei saa stipendiumi"</span>)
+        <span class="hljs-keyword">else</span>:
+            <span class="hljs-keyword">if</span> arv == <span class="hljs-string">"2"</span>
+           <!--  delete -->
+                  </code></pre>
+              </div>
+              <div class="spacer">
+                <div class="file-shell active">Shell</div>
+              </div>
+              <div id="modal-main-shell" class="modal-bottom scroll-auto">
+                <pre><code id="modal-shell-text" class="python-repl">
+Python 3.7.2 (bundled)
+<span class="hljs-meta">&gt;&gt;&gt;</span>
+                    <!--  delete -->
+                  </code></pre>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div> 
   
 
 
   <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+  <!-- <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script> -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
   <!--  Bootstrap Toggle -->
   <script src="https://gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js"></script>
   <!-- JSZIP CDN-->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.5.0/jszip.js" integrity="sha512-18QiVdJv36r1ryb5mr1lFpm4wZMORhvGgvz0mHQllOmx3NmSZkYwWuDcecFByaRVWqiQ0F/FZC5pCBMuy8IfkQ==" crossorigin="anonymous"></script>
-  <!-- jQuery Custom Scroller CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/malihu-custom-scrollbar-plugin/3.1.5/jquery.mCustomScrollbar.concat.min.js"></script>
+  <!-- HighlightJs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.6.0/highlight.min.js" integrity="sha512-zol3kFQ5tnYhL7PzGt0LnllHHVWRGt2bTCIywDiScVvLIlaDOVJ6sPdJTVi0m3rA660RT+yZxkkRzMbb1L8Zkw==" crossorigin="anonymous"></script>
   <!-- my JavaScript -->
   <script src="js/scripts.js"></script>
 </body>
