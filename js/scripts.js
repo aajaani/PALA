@@ -115,13 +115,15 @@ function showLogInputData(){
  * 
  */
 function switchListItem(keyEvent){
-    if (!$("#input-analysis-type")[0].checked){ //Multiple student analysis
-        $('.failid.active').removeClass('active');   
-    }
-    $(".tab-pane.active").removeClass('active show');   
-    
-    if (keyEvent.code=="Tab"){
-        $(this).tab('show');
+    if (keyEvent.code=="Tab" || keyEvent.type=="click"){
+        if (!$("#input-analysis-type")[0].checked){ //Multiple student analysis
+            $('.failid.active').removeClass('active');   
+        }
+        $(".tab-pane.active").removeClass('active show');   
+        
+        if (keyEvent.code=="Tab"){
+            $(this).tab('show');
+        }
     }
 }
 
