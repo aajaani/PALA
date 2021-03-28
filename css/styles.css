@@ -81,7 +81,8 @@ body {
 
 .content {
     width: 100%;
-    padding: 40px;
+    /* padding: 40px; */
+    padding-bottom: 100px;
     min-height: 100vh;
     transition: all 0.3s;
     position: absolute;
@@ -96,24 +97,6 @@ body {
 /* ---------------------------------------------------
     MEDIAQUERIES
 ----------------------------------------------------- */
-
-@media (max-width: 768px) {
-    .sidebar {
-        margin-left: -250px;
-    }
-    .sidebar.active {
-        margin-left: 0;
-    }
-    .content {
-        width: 100%;
-    }
-    .content.active {
-        width: calc(100% - 250px);
-    }
-/*     #sidebarCollapse span {
-        display: none;
-    } */
-}
 
 
 .mCSB_dragger_bar,.mCSB_scrollTools .mCSB_dragger{
@@ -214,6 +197,18 @@ pre{
 }
 
 @media (max-width: 768px) {
+    .sidebar {
+        margin-left: -250px;
+    }
+    .sidebar.active {
+        margin-left: 0;
+    }
+    .content {
+        width: 100%;
+    }
+    .content.active {
+        width: calc(100% - 250px);
+    }
     .modal-sidebar{
         width: 150px;
     }
@@ -227,6 +222,12 @@ pre{
         width: calc(100% - 100px);
     }
 }
+
+@media (max-width: 576px) {
+    .content.active .footer,.content.active #log-analysis{
+        display: none !important;
+    }
+} 
 
 
 .modal-sidebar{
@@ -304,7 +305,7 @@ pre{
     padding: 0px 5px;
 }
 
-.modal-sidebar .row{
+.row{
     margin:0px;
 }
 
@@ -318,4 +319,67 @@ pre{
 
 pre code{
     font-size: 12px;
+}
+
+.input-analysis-type-div{
+    position: relative;
+}
+
+.icon-info{
+    color:#b6b6b6;
+    position: absolute;
+    top: -15px;
+    right:-15px;
+}
+
+.alert{
+    z-index: 100000;
+    position: fixed;
+    width: 100%;
+    opacity: 95%;
+    width: 50%;
+    right: 0;
+/*     width: 50%;
+    margin-left: 40%;
+    margin-top: 5%;
+    opacity: 95%; */
+}
+
+.bold{
+    font-weight: bold;
+}
+
+a:hover{
+    cursor: pointer;
+}
+
+#alert-error-list{
+    height: 50vh;
+}
+
+.footer{
+    height : 10vh;
+    width: 100%;
+    background-color: #0060aa;
+    padding: 0px;
+    position: absolute;
+    bottom: 0;
+}
+
+
+.responsive{
+    height: 100%;
+}
+
+#footer-ut-logo-white{
+    height: 100%;
+}
+
+#log-analysis{
+    margin-bottom: 10%;
+}
+
+#repo-link{
+    font-size: 6vh;
+    color: #e9e9e9;
 }

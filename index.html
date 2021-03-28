@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Thonny log analyser</title>
-  <link rel="shortcut icon" href="https://www.cs.ut.ee/sites/all/themes/ut_main/favicon.ico" type="image/vnd.microsoft.icon">
+  <link rel="icon" href="img/tartu_university_icon.ico" type="image/x-icon">
   <meta name="description" content="Thonny log analyser">
   <!-- Bootstrap CSS -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
@@ -28,18 +28,17 @@
           <h3>Analysed files</h3>
       </div>
       <div id='log-analysis-groups' class="list-group" role="tablist">
-
         <a class="list-group-item list-group-item-action">No files analysed</a>
-
       </div>
     </div>
     
+    <!-- Main content -->
     <div class="content">
 
       <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
 
-            <button type="button" id="sidebarCollapse" class="btn btn-info">
+            <button id="sidebarCollapse" class="btn btn-info" type="button">
               <i class="fa fa-indent"></i>
                 <span>Analysed files</span>
             </button>
@@ -56,10 +55,20 @@
       <div class="container">
 
         <div id="choose-logs" class="collapse show">
-          <div class='analysis-type d-flex justify-content-center align-items-center' id="input-types">
-            <input id="input-analysis-type" type="checkbox" checked data-toggle="toggle" data-on="Single student analysis" data-off="Multiple student analysis" data-offstyle="info">
+          <div id="input-types" class='analysis-type d-flex justify-content-center align-items-center'>
+            <div class="input-analysis-type-div">
+              <input id="input-analysis-type" type="checkbox" checked data-toggle="toggle" data-on="Single student analysis" data-off="Multiple student analysis" data-offstyle="info">
+              <a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="<b>Single student analysis</b> outputs a list of analysed files with their full path. <br /><b>Multiple student analysis</b> outputs a list of analysed files which are grouped by top level folders.">
+                <i class="fa fa-info-circle icon-info"></i>
+              </a>
+            </div>
             <div class="mx-2"></div>
-            <input id="input-log-type" type="checkbox" checked data-toggle="toggle" data-on="File input" data-off="Folder input" data-offstyle="info">
+            <div class="input-analysis-type-div">
+              <input id="input-log-type" type="checkbox" checked data-toggle="toggle" data-on="File input" data-off="Folder input" data-offstyle="info">
+              <a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="<b>File input</b> enables you to choose log files and/or zip-files. <br /><b>Folder input</b> enables you to choose a folder containing log files and/or zip-files.">
+                <i class="fa fa-info-circle icon-info"></i>
+              </a>
+            </div>
           </div>
 
           <div class="log-input-container">
@@ -67,10 +76,10 @@
               <input id="file-input" class="log-input" type="file" multiple>
               <input id="folder-input" class="log-input d-none" type="file" webkitdirectory directory multiple>
               <div class="log-input-msg">
-                <h4 id="log-input-file-msg" class="log-input-area-msg"> <b>Drag</b> or <b>Click</b> inside the area to choose log file(s) or zip-files to be analysed</h4>
+                <h4 id="log-input-file-msg" class="log-input-area-msg"> <b>Drag</b> or <b>Click</b> inside the area to choose log file(s) or zip-files to be analysed.</h4>
               </div>
               <div class="log-input-msg d-none">
-                <h4 id="log-input-folder-msg" class="log-input-area-msg"><b>Drag</b> or <b>Click</b> inside the area to choose folder(s) containing log files to be analysed</h4>
+                <h4 id="log-input-folder-msg" class="log-input-area-msg"><b>Drag</b> or <b>Click</b> inside the area to choose a folder containing log files or zip-files to be analysed.</h4>
               </div>
             </div>
             <div class="button-input-container" id="log-button-div">
@@ -81,18 +90,25 @@
             </div>
           </div>
         </div>
-
       </div>
 
       <div id="log-analysis">
         <div class="row">
-
-            <div id='log-analysis-results' class="tab-content container" ><!-- class="tab-content" -->
-
+            <div id='log-analysis-results' class="tab-content container" >
             </div>
-          
         </div>
       </div>
+
+      <div class="footer d-flex">
+        <div id='footer-ut-logo-white' >
+          <img src="img/tartu_university_white_logo.png" alt="Tartu University main white logo" class="responsive" >
+        </div>
+        <a id='repo-link' class="ml-auto p-2" href="https://bitbucket.org/renekutt/thonny-log-analyser/src/master/" target="_blank">
+          <i class="fa fa-code-fork" aria-hidden="true"></i>
+          <i class="fa fa-git" aria-hidden="true"></i>
+        </a>
+      </div>
+
     </div>
   </div>
 
@@ -114,55 +130,10 @@
                 </div>
               </div>
 
-              <!-- <div class="modal-sidebar-events"> -->
-
-                
-                <div id="modal-sidebar-event-list" class="event-list modal-middle scroll-y">
-                    <!--  delete -->
-                    
-                        <div id="event-list-row-0" class="row event-row event-list-row" data-logfile-object-index="0" tabindex="0">
-                          <div class="col-7 event-list-name">ShowView</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-1" class="row event-row event-list-row" data-logfile-object-index="1" tabindex="0">
-                          <div class="col-7 event-list-name">ShowView</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-2" class="row event-row event-list-row" data-logfile-object-index="2" tabindex="0">
-                          <div class="col-7 event-list-name">EditorTextCreated</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-3" class="row event-row event-list-row" data-logfile-object-index="3" tabindex="0">
-                          <div class="col-7 event-list-name">Open</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-4" class="row event-row event-list-row" data-logfile-object-index="4" tabindex="0">
-                          <div class="col-7 event-list-name">TextDelete</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-5" class="row event-row event-list-row" data-logfile-object-index="5" tabindex="0">
-                          <div class="col-7 event-list-name">TextInsert</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-6" class="row event-row event-list-row" data-logfile-object-index="6" tabindex="0">
-                          <div class="col-7 event-list-name">ShowView</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                      
-                      <div id="event-list-row-7" class="row event-row event-list-row" data-logfile-object-index="7" tabindex="0">
-                          <div class="col-7 event-list-name">ShowView</div>
-                          <div class="col-4 event-list-sec"></div>
-                      </div>
-                    <!--  delete -->
-                </div>
+              <div id="modal-sidebar-event-list" class="event-list modal-middle scroll-y">
+                  
+              </div>
               
-
               <div id="modal-sidebar-event-data-header" class="modal-sidebar-header">
                 <div class="row">
                   <div class="col-6">Attribute</div>
@@ -171,84 +142,25 @@
               </div>
 
 
-                <div id="modal-sidebar-event-data-list" class="event-list modal-bottom scroll-auto">
-                    <!--  delete -->
-                    
-                    <div class="row event-row">
-                      <div class="col-6">index</div>
-                      <div class="col-6">10.0</div>
-                  </div>    
-                  
-                  <div class="row event-row">
-                      <div class="col-6">text</div>
-                      <div class="col-6">            </div>
-                  </div>    
-                  
-                  <div class="row event-row">
-                      <div class="col-6">tags</div>
-                      <div class="col-6">None</div>
-                  </div>    
-                  
-                  <div class="row event-row">
-                      <div class="col-6">text_widget_id</div>
-                      <div class="col-6">84266576</div>
-                  </div>    
-                  
-                  <div class="row event-row">
-                      <div class="col-6">text_widget_class</div>
-                      <div class="col-6">CodeViewText</div>
-                  </div>    
-                  
-                  <div class="row event-row">
-                      <div class="col-6">sequence</div>
-                      <div class="col-6">TextInsert</div>
-                  </div>    
-                  
-                  <div class="row event-row">
-                      <div class="col-6">time</div>
-                      <div class="col-6">2020-11-09T14:00:54.996320</div>
-                  </div>
-                    <!--  delete -->
-                </div>
+              <div id="modal-sidebar-event-data-list" class="event-list modal-bottom scroll-auto">
+              </div>
 
-              
-        
             </div>
             <div class="p-2 modal-main-content">
               <div id="modal-main-header" class="d-flex flex-wrap modal-upper scroll-y-auto">
-                <!--  delete -->
-                <div class="p-2 file ">easygui.py</div><div class="p-2 file active">&lt;untitled&gt;</div>
-                <!--  delete -->
               </div>
               <div id="modal-main-ide" class="modal-middle scroll-auto">
-                <pre><code id="modal-program-text" class="python">
-nimi = <span class="hljs-built_in">str</span>(<span class="hljs-built_in">input</span>(<span class="hljs-string">"Sisesta failinimi: "</span>))
-fail = <span class="hljs-built_in">open</span>(nimi,encoding=<span class="hljs-string">"UTF-8"</span>)
-
-<span class="hljs-keyword">for</span> rida <span class="hljs-keyword">in</span> fail:
-    <span class="hljs-keyword">for</span> arv <span class="hljs-keyword">in</span> rida:
-        <span class="hljs-keyword">if</span> arv == <span class="hljs-string">"3"</span>
-            print(<span class="hljs-string">"Ei saa stipendiumi"</span>)
-        <span class="hljs-keyword">else</span>:
-            <span class="hljs-keyword">if</span> arv == <span class="hljs-string">"2"</span>
-           <!--  delete -->
-                  </code></pre>
+                <pre><code id="modal-program-text" class="python"></code></pre>
               </div>
               <div class="spacer">
                 <div class="file-shell active">Shell</div>
               </div>
               <div id="modal-main-shell" class="modal-bottom scroll-auto">
-                <pre><code id="modal-shell-text" class="python-repl">
-Python 3.7.2 (bundled)
-<span class="hljs-meta">&gt;&gt;&gt;</span>
-                    <!--  delete -->
-                  </code></pre>
+                <pre><code id="modal-shell-text" class="python-repl"></code></pre>
               </div>
-
             </div>
           </div>
         </div>
-
       </div>
     </div>
   </div> 

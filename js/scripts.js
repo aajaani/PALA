@@ -7,11 +7,16 @@ var supportedArchiveTypes=['application/x-zip-compressed'
 var files=[];
 var modalJsonLog=[];
 var logCacheInterval=50;
+var errorAnalysing=[];
 
 $(function() {
     console.log( "ready!" );
 
     addListeners();
+
+    $('[data-toggle="popover"]').popover({
+        trigger: 'focus'
+      }); 
 
     //$('#replayerModal').modal(); //delete
 });
@@ -26,11 +31,33 @@ function addListeners(){
     $(".log-input").change(showLogInputData); //file or folder chosen then shown in log input area
     $("#expand-choose-logs").click(toggleChooseLogs); 
     $('#sidebarCollapse').click(toggleSidebar);
-    $('#replayerModal').on('hidden.bs.modal', modalOnHide); 
+    $('#replayerModal').on('shown.bs.modal', modalOnShown); //This event is fired when the modal has been made visible to the user 
+    $('#replayerModal').on('hide.bs.modal', modalOnHide);   //This event is fired immediately when the hide instance method has been called.
+    $('#replayerModal').on('hidden.bs.modal', modalOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
+    $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
 }
 
 
+/** This event is fired when the modal has been made visible to the user 
+ * 
+ */
+function modalOnShown(){
+    $('#event-list-row-0').focus();   
+}
+
+
+/**This event is fired immediately when the hide instance method has been called.
+ * 
+ */
 function modalOnHide(){
+    $('#modal-sidebar-event-list').scrollTop(0);
+}
+
+
+/** This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
+ * 
+ */
+function modalOnHidden(){
     modalJsonLog=[];
     $('#modal-sidebar-event-list').empty();  //eemaldame kirjed replayerist
     $("#modal-sidebar-event-data-list").empty();
@@ -88,18 +115,34 @@ function showLogInputData(){
  * 
  */
 function switchListItem(keyEvent){
-    if (!$("#input-analysis-type")[0].checked){ //Multiple student analysis
-        $('.failid.active').removeClass('active');   
-    }
-    $(".tab-pane.active").removeClass('active show');   
+    if (keyEvent.code=="Tab"){
+        if (!$("#input-analysis-type")[0].checked){ //Multiple student analysis
+            $('.failid.active').removeClass('active');   
+        }
+        $(".tab-pane.active").removeClass('active show');   
 
-    if (keyEvent.which===9){
         $(this).tab('show');
     }
 }
 
+
+
+function onKeyDown(keyEvent){
+    if(["ArrowUp","ArrowDown"].indexOf(keyEvent.code) > -1) {
+        keyEvent.preventDefault();
+        //console.log(keyEvent);
+        if(keyEvent.code=="ArrowUp"){
+            $(".event-list-row.active").prev().focus();
+        }else if(keyEvent.code=="ArrowDown"){
+            $(".event-list-row.active").next().focus();
+        }
+    }
+} 
+
+
+
 function switchFolder(keyEvent){
-    if (keyEvent.which===9){
+    if (keyEvent.code=="Tab"){
         $(this).click();
     }
 }
@@ -141,15 +184,40 @@ function fileSubmit(){
     toggleChooseLogs();
     showSidebar();
     files=[];
+    errorAnalysing=[];
 
     for(i=0;i<logInput[0].files.length;i++){
-        if (logInput[0].files[i].type==='text/plain'){ //if text file
-            //addLogAnalysisEntry( i, logInput[0].files[i]);
+        if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
             readObject( logInput[0].files[i], i,"analyse","",false);
         }else if (supportedArchiveTypes.includes(logInput[0].files[i].type)){ //if zip file
             parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
+        }else{ //wrong type
+            errorAnalysing.push(logInput[0].files[i].name);
         }
     }
+
+    setTimeout(() => {  
+         if(errorAnalysing.length>0){
+            var tableErrors=`
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="alert-heading">Error analysing files</h4>
+                <a id='alert-expand-control' class='bold' data-toggle="collapse" href="#alert-expand-body" aria-expanded="false" aria-controls="alert-expand-body">Click here</a> to see list of files which couldn't be analysed.
+                <div id="alert-expand-body" class="collapse">
+                    <hr>
+                    <ul id="alert-error-list" class="scroll-auto">
+                    </ul>
+                </div>
+            </div>
+                            `;
+            $('body').append(tableErrors);
+             for(let i=0;i<errorAnalysing.length;i++){
+                $('#alert-error-list').append(`<li>${errorAnalysing[i]}</li>`);
+             }
+         }
+        }, 1000);
 
 }
 
@@ -161,7 +229,6 @@ function parseZipFile(entryId, zipFile, path=''){
         var files = zip.file(/.*/); //all files in array ZipObjects
         for (let i=0;i<files.length;i++){
             if( RegExp('\.txt').test(files[i].name)){ //text file
-                //addLogAnalysisEntry(entryId+'-'+i,files[i],true, path);
                 readObject( files[i], entryId+'-'+i, "analyse", path, true);
             }else if(RegExp('\.zip').test(files[i].name)){
                 files[i].async("blob")
@@ -191,12 +258,15 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
             try {
                 handleObject(JSON.parse(text), file, entryId, path, isZipObject, type);
             } catch (e){
-                console.log('Error reading zip file.');
+                //console.log('Error reading zip file.');
                 console.log(e);
+                if(type=="analyse"){
+                    errorAnalysing.push(path+file.name);
+                }
                 return;
             }
         });
-    }else{  //isnot zip object
+    }else{  //is not zip object
         if(file.type==='text/plain'){
             files[entryId]={"file":file, "type": "text"};
             const reader = new FileReader();
@@ -206,8 +276,11 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
                 try{
                     handleObject(JSON.parse(text), file, entryId, path, isZipObject, type);
                 } catch (e){
-                    console.log('Error reading text file.');
+                    //console.log('Error reading text file.');
                     console.log(e);
+                    if(type=="analyse"){
+                        errorAnalysing.push(path+file.name);
+                    }
                     return;
                 }
               });
@@ -526,16 +599,6 @@ function populateModal(jsonLog){
   }
   $('.event-list-row').focus(handleEventListFocus);
   modalJsonLog=jsonLog;
-  console.log(jsonLog);
-  //console.log(eventListGroup);
-  //$('#modal-sidebar-event-list').scrollTop();
-  //console.log(eventListGroup[0].scrollTo(0,100));
-  //console.log($('#modal-sidebar-event-list'));
-  //console.log($('#modal-sidebar-event-list')[0]);
-  //console.log($('#modal-sidebar-event-list')[0].scrollTop);
-  //console.log($('#modal-sidebar-event-list')[0].id);
-  //$('#modal-sidebar-event-list')[0].scrollTop($('#modal-sidebar-event-list')[0].scrollTop);
-  //$('#modal-sidebar-event-list')[0].scrollTo(0,200);
 }
 
 
@@ -676,6 +739,7 @@ function handleEventListFocus(){
     var currentObject=modalJsonLog[jsonLogIndex];
 
     for(const attribute in currentObject){
+        if(attribute=='analysation_cache'){continue;}
         eventListData=`
                     <div class="row event-row">
                         <div class="col-6">${attribute}</div>
@@ -687,20 +751,27 @@ function handleEventListFocus(){
         attrIndex++;
     }
 
+
     var nearestCacheIndex=jsonLogIndex-(jsonLogIndex%logCacheInterval);
 
     var replayerFiles=JSON.parse(JSON.stringify(modalJsonLog[nearestCacheIndex].analysation_cache.replayerFiles));
     var shellText=JSON.parse(JSON.stringify(modalJsonLog[nearestCacheIndex].analysation_cache.shellText));
 
-
+    var activeIndex=getActiveIndex(replayerFiles);
+    
     for(var i=nearestCacheIndex+1;i<=jsonLogIndex;i++){
         [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, modalJsonLog[i]);
     }
     
-    var programText=replayerFiles[getActiveIndex(replayerFiles)].codeViewText.join("\n");
+    var activeIndex=getActiveIndex(replayerFiles);
+    if(replayerFiles[activeIndex]!=null){
+        var programText=replayerFiles[activeIndex].codeViewText.join("\n");
+        $("#modal-program-text").text(programText);
+    }
 
-    $("#modal-program-text").text(programText);
-    $("#modal-shell-text").text(shellText.join("\n"));
+    if(shellText!=null){
+        $("#modal-shell-text").text(shellText.join("\n"));
+    }
 
     $("#modal-main-header").empty()
     for(var i=0;i<replayerFiles.length;i++){
@@ -708,8 +779,7 @@ function handleEventListFocus(){
         $("#modal-main-header").append(file);
     }
 
-    //$("html, body").animate({ scrollTop: $("#modal-main-shell").scrollTop() }, 1000);
-    $("#modal-main-shell").scrollTop()
+    $('#modal-main-shell').scrollTop( $('#modal-main-shell')[0].scrollHeight); //scroll to bottom of shell
 
-    hljs.highlightAll();
+    hljs.highlightAll(); //colour code
 }
