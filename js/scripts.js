@@ -9,6 +9,8 @@ var modalJsonLog=[];
 var logCacheInterval=50;
 var errorAnalysing=[];
 
+var chart;
+
 $(function() {
     console.log( "ready!" );
 
@@ -19,6 +21,8 @@ $(function() {
       }); 
 
     //$('#replayerModal').modal(); //delete
+    //$('#textGraphModal').modal(); //delete
+
 });
  
 
@@ -31,17 +35,24 @@ function addListeners(){
     $(".log-input").change(showLogInputData); //file or folder chosen then shown in log input area
     $("#expand-choose-logs").click(toggleChooseLogs); 
     $('#sidebarCollapse').click(toggleSidebar);
-    $('#replayerModal').on('shown.bs.modal', modalOnShown); //This event is fired when the modal has been made visible to the user 
-    $('#replayerModal').on('hide.bs.modal', modalOnHide);   //This event is fired immediately when the hide instance method has been called.
-    $('#replayerModal').on('hidden.bs.modal', modalOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
+    $('#replayerModal').on('shown.bs.modal', replayerOnShown); //This event is fired when the modal has been made visible to the user 
+    $('#replayerModal').on('hide.bs.modal', replayerOnHide);   //This event is fired immediately when the hide instance method has been called.
+    $('#replayerModal').on('hidden.bs.modal', replayerOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
+    $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden);
+}
+
+
+function textGraphOnHidden(){
+    modalJsonLog=[];
+    chart.destroy();
 }
 
 
 /** This event is fired when the modal has been made visible to the user 
  * 
  */
-function modalOnShown(){
+function replayerOnShown(){
     $('#event-list-row-0').focus();   
 }
 
@@ -49,7 +60,7 @@ function modalOnShown(){
 /**This event is fired immediately when the hide instance method has been called.
  * 
  */
-function modalOnHide(){
+function replayerOnHide(){
     $('#modal-sidebar-event-list').scrollTop(0);
 }
 
@@ -57,7 +68,7 @@ function modalOnHide(){
 /** This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
  * 
  */
-function modalOnHidden(){
+function replayerOnHidden(){
     modalJsonLog=[];
     $('#modal-sidebar-event-list').empty();  //eemaldame kirjed replayerist
     $("#modal-sidebar-event-data-list").empty();
@@ -296,8 +307,8 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
 function handleObject(jsonLog, file, entryId, path, isZipObject, type){
     if (type==="analyse"){
         analyse( jsonLog, file, entryId, path, isZipObject);
-    }else if(type==="populateModal"){
-        populateModal(jsonLog);
+    }else if(["replayer", "textGraph"].includes(type)){ //type==="replayer" 
+        parseLogFile(jsonLog, type);
     }
 }
 
@@ -384,7 +395,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                     </table>
                 </div>`;
     var tableCopyPaste=`
-            <div class="butcollapse" id='copiedTexts-${entryId}'>
+            <div class="analysed-panel-btn-block" id='copiedTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste-${entryId}" role="button" aria-expanded="false" aria-controls="collapseCopyPaste-${entryId}">
                 Copy/Pasted texts (${copyPasteCount})
                 </a>
@@ -399,7 +410,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 </div>
             </div>`;
     var tableErrors=`
-            <div class="butcollapse" id='errorTexts-${entryId}'>
+            <div class="analysed-panel-btn-block" id='errorTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors-${entryId}" role="button" aria-expanded="false" aria-controls="collapseErrors-${entryId}">
                 Errors (${errorCount})
                 </a>
@@ -414,9 +425,19 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 </div>
             </div>`;
     var replayerButton=`
-            <button id="btn-open-replayer-${entryId}" class="btn btn-primary btn-replayer" data-toggle="modal" data-target="#replayerModal" data-entry-id="${entryId}">
-              Open Replayer
-            </button>
+            <div class="analysed-panel-btn-block">
+                <button id="btn-open-replayer-${entryId}" class="btn btn-primary btn-replayer" data-toggle="modal" data-target="#replayerModal" data-entry-id="${entryId}">
+                    Open Replayer
+                </button>
+            </div>
+            `;
+
+    var textGraphButton=`
+            <div class="analysed-panel-btn-block">
+                <button id="btn-open-text-graph-${entryId}" class="btn btn-primary btn-graph" data-toggle="modal" data-target="#textGraphModal" data-entry-id="${entryId}">
+                    Open program length graph
+                </button>
+            </div>
             `;
 
     var panelId=`list-${entryId}`;
@@ -427,12 +448,14 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     $('#'+panelId).append(tableCopyPaste);
     $('#'+panelId).append(tableErrors);
     $('#'+panelId).append(replayerButton);
+    $('#'+panelId).append(textGraphButton);
 
     displayDataTable(idGeneralInfo,generalInfo);
     displayDataTable(idCopyPaste,copiedTexts);
     displayDataTable(idErrors,errorTexts);
 
-    $('#btn-open-replayer-'+entryId).click(readFileForModal);
+    $('#btn-open-replayer-'+entryId).click(readAnalysedFile);
+    $('#btn-open-text-graph-'+entryId).click(readAnalysedFile);
 }
 
 
@@ -552,55 +575,155 @@ function getDate1(date){
     return new Date(date).toLocaleString('en-GB');
 }
 
-function readFileForModal(){
+
+/**  readFileForModal - old
+ * 
+ */
+function readAnalysedFile(){
+
     var entryId=$(this)[0].attributes['data-entry-id'].value
 
     if (files[entryId]==null){
         alert('File not found in input space.')
     }
     var isZipObject=files[entryId].type=="zip";
-    readObject(files[entryId].file, '', type="populateModal", '', isZipObject);
+    if($(this)[0].attributes['data-target'].value=='#replayerModal'){
+        readObject(files[entryId].file, '', type="replayer", '', isZipObject);
+    }else if($(this)[0].attributes['data-target'].value=='#textGraphModal'){
+        readObject(files[entryId].file, '', type="textGraph", '', isZipObject);
+    }
 }
 
-function populateModal(jsonLog){
-  const eventListGroup=$('#modal-sidebar-event-list');
 
-  eventListGroup.empty();
-
-  var eventList;
-  var split='';
-
-  var replayerFiles=[];
-  var shellText=[];
-
-  for(var i=0;i<jsonLog.length;i++){
-
-    [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, jsonLog[i]);
-
-
-    if(i%logCacheInterval==0){
-        jsonLog[i]["analysation_cache"]={"replayerFiles":JSON.parse(JSON.stringify(replayerFiles)),"shellText":JSON.parse(JSON.stringify(shellText))}; 
+/** populateModal - old name
+ * 
+ * @param {*} jsonLog 
+ */
+function parseLogFile(jsonLog, type){
+    const eventListGroup=$('#modal-sidebar-event-list');
+    if(type=="replayer"){
+        eventListGroup.empty();
     }
 
-    if(i>1){
-        split=(new Date(jsonLog[i].time))-(new Date(jsonLog[i-1].time));
-        split=Math.floor(split / 1e3)
-        if(split<1){
-            split='';
+    var eventList;
+    var split='';
+
+    var replayerFiles=[];
+    var shellText=[];
+
+    var data=[]
+
+    const reducerStringArray = (accumulator, currentValue) => accumulator + currentValue.length;
+    const reducerFiles= (accumulator, currentValue) => accumulator + currentValue.codeViewText.reduce(reducerStringArray,0);
+
+    for(var i=0;i<jsonLog.length;i++){
+
+        [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, jsonLog[i]);
+
+        if(type=="replayer"){
+            if(i%logCacheInterval==0){
+                jsonLog[i]["analysation_cache"]={"replayerFiles":JSON.parse(JSON.stringify(replayerFiles)),"shellText":JSON.parse(JSON.stringify(shellText))}; 
+            }
+
+            if(i>1){
+                split=(new Date(jsonLog[i].time))-(new Date(jsonLog[i-1].time));
+                split=Math.floor(split / 1e3)
+                if(split<1){
+                    split='';
+                }
+            }
+            
+            eventList=`
+                        <div id="${'event-list-row-'+i}" class="row event-row event-list-row" data-logfile-object-index="${i}" tabindex="0">
+                            <div class="col-7 event-list-name">${encodeEntitie(jsonLog[i].sequence)}</div>
+                            <div class="col-4 event-list-sec">${split}</div>
+                        </div>
+                        `;
+
+            eventListGroup.append(eventList);
+        }else if(type=="textGraph"){
+            if (jsonLog[i].sequence=='TextInsert' || jsonLog[i].sequence=='TextDelete'){
+                data.push({"x": jsonLog[i].time,"y":replayerFiles.reduce(reducerFiles,0)}); //.split('T').join(' ')  jsonLog[i].time
+            }
         }
     }
-    
-    eventList=`
-                <div id="${'event-list-row-'+i}" class="row event-row event-list-row" data-logfile-object-index="${i}" tabindex="0">
-                    <div class="col-7 event-list-name">${encodeEntitie(jsonLog[i].sequence)}</div>
-                    <div class="col-4 event-list-sec">${split}</div>
-                </div>
-                `;
-
-    eventListGroup.append(eventList);
-  }
-  $('.event-list-row').focus(handleEventListFocus);
-  modalJsonLog=jsonLog;
+    if(type=="replayer"){
+        $('.event-list-row').focus(handleEventListFocus);
+        modalJsonLog=jsonLog;
+    }else if(type=="textGraph"){
+    chart = new Chart( 'text-length-graph', {
+        // The type of chart we want to create  
+        type: 'line',
+        // The data for our dataset
+        data: {
+            datasets: [{
+              label: 'Character count',
+              data:data,
+              borderColor: 'rgba(0, 98, 168, 1)',
+              backgroundColor: 'rgba(0, 98, 168, 0.1)',
+              fill: true,
+              pointRadius:0
+            }]
+          }
+        ,
+        // Configuration options go here
+        options: {
+            maintainAspectRatio:false,
+            interaction: {
+                intersect:false,
+                axis: 'x'
+              },
+            plugins:{
+                title: {
+                    display: true,
+                    text: 'Text length graph',
+                    font: {
+                        size: 20
+                    }
+                },
+                legend:{
+                    display:false
+                }
+            },
+            scales: {
+                 y: {
+                    min:0,
+                    title: {
+                        display: true,
+                        text: 'Character count',
+                        font: {
+                            size: 14,
+                            style:'bold'
+                        }
+                    }
+                }, 
+                x: {
+                    type: 'timeseries',
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Time',
+                        font: {
+                            size: 14,
+                            style:'bold'
+                        }
+                    },
+                    time: {
+                        unit: 'second',
+                        displayFormats: {
+                            second: 'dd/MM HH:mm'
+                        },
+                        tooltipFormat: 'dd/MM/yyyy HH:mm:ss'
+                    } ,    
+                    ticks: {
+                        source:'data',
+                        maxTicksLimit:10,
+                    } 
+                }
+            }
+        }
+    }); 
+    }
 }
 
 

@@ -117,7 +117,7 @@ body {
     margin-bottom: 30px;
 }
 
-.butcollapse{
+.analysed-panel-btn-block{
     margin-bottom: 30px;
 }
 
@@ -280,7 +280,7 @@ pre{
     background-color: #a9b5e9;
 }
 
-.modal-body, .spacer{
+.replayer-body, .spacer{
     background-color: #e9e9e9;
 }
 
@@ -381,4 +381,14 @@ a:hover{
 #repo-link{
     font-size: 6vh;
     color: #e9e9e9;
+}
+
+.graph-content{
+    max-height:95vh;
+    height: auto;
+}
+
+canvas{
+    min-height: 85vh;
+    max-height: 85vh; 
 }
