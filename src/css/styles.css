@@ -108,7 +108,6 @@ body {
 
 .list-group-item{
     padding-left: 4px;
-    /* padding-right: 80%; */
     font-size: 14px;
 }
 
@@ -121,7 +120,7 @@ body {
     margin-bottom: 30px;
 }
 
-#input-types, #log-input-area, #log-button-div{
+.input-analysis-type-div, #log-input-area, #log-button-div{
     margin-bottom: 20px;    
 }
 
@@ -131,7 +130,7 @@ body {
     position: relative;
 }
 
-.log-input-msg,.log-input{ /* .log-input-area-msg */
+.log-input-msg,.log-input{
     height:200px;
     width:100%;
     border: 3px dashed #1976d2;
@@ -143,7 +142,7 @@ body {
     opacity: 0;
 }
 
-.log-input-msg{ /* .log-input-area-msg */
+.log-input-msg{ 
     text-align: center;
     display: flex;
     justify-content: center;
@@ -194,39 +193,6 @@ pre{
     padding-top: 0px !important;
     width: calc(100% - 200px);
 }
-
-@media (max-width: 768px) {
-    .sidebar {
-        margin-left: -250px;
-    }
-    .sidebar.active {
-        margin-left: 0;
-    }
-    .content {
-        width: 100%;
-    }
-    .content.active {
-        width: calc(100% - 250px);
-    }
-    .modal-sidebar{
-        width: 150px;
-    }
-
-    .modal-sidebar-header{
-        font-size: 12px;
-        font-weight: bold;
-    }
-    
-    .modal-main-content{
-        width: calc(100% - 100px);
-    }
-}
-
-@media (max-width: 576px) {
-    .content.active .footer,.content.active #log-analysis{
-        display: none !important;
-    }
-} 
 
 
 .modal-sidebar{
@@ -280,6 +246,10 @@ pre{
     background-color: #a9b5e9;
 }
 
+.event-list-sec{
+    text-align: right;
+}
+
 .replayer-body, .spacer{
     background-color: #e9e9e9;
 }
@@ -328,7 +298,6 @@ pre code{
     color:#b6b6b6;
     position: absolute;
     top: -15px;
-    right:-15px;
 }
 
 .alert{
@@ -338,10 +307,6 @@ pre code{
     opacity: 95%;
     width: 50%;
     right: 0;
-/*     width: 50%;
-    margin-left: 40%;
-    margin-top: 5%;
-    opacity: 95%; */
 }
 
 .bold{
@@ -355,6 +320,10 @@ a:hover{
 #alert-error-list{
     height: 50vh;
 }
+
+/* ---------------------------------------------------
+    FOOTER STYLE
+----------------------------------------------------- */
 
 .footer{
     height : 10vh;
@@ -381,7 +350,12 @@ a:hover{
 #repo-link{
     font-size: 6vh;
     color: #e9e9e9;
+    overflow: hidden;
 }
+
+/* ---------------------------------------------------
+    TEXT LENGTH GRAPH STYLE
+----------------------------------------------------- */
 
 .graph-content{
     max-height:95vh;
@@ -392,3 +366,63 @@ canvas{
     min-height: 85vh;
     max-height: 85vh; 
 }
+
+.custom-switch .custom-switch-input:checked+.custom-switch-btn {
+    background: #0060aa;
+}
+
+.log-input-container{
+    min-width: 150px;
+}
+
+.analysed-panel-btn-block, .table-container{
+    overflow: auto;
+}
+
+.switch-label-text{
+    line-height: 30px;
+    font-size: 20px;
+}
+
+/* ---------------------------------------------------
+    RESPONSIVE CONTENT
+----------------------------------------------------- */
+
+
+@media (max-width: 768px) {
+    .sidebar {
+        margin-left: -250px;
+    }
+    .sidebar.active {
+        margin-left: 0;
+    }
+    .content {
+        width: 100%;
+    }
+    .content.active {
+        width: calc(100% - 250px);
+    }
+    .modal-sidebar{
+        width: 150px;
+    }
+
+    .modal-sidebar-header{
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .modal-main-content{
+        width: calc(100% - 100px);
+    }
+}
+
+@media (max-width: 576px) {
+    .log-input-area-msg{
+        font-size: 1.25rem;
+    }
+
+    .switch-label-text{
+        line-height: 20px;
+        font-size: 15px;
+    }
+} 

@@ -20,9 +20,6 @@ $(function() {
         trigger: 'focus'
       }); 
 
-    //$('#replayerModal').modal(); //delete
-    //$('#textGraphModal').modal(); //delete
-
 });
  
 
@@ -39,26 +36,28 @@ function addListeners(){
     $('#replayerModal').on('hide.bs.modal', replayerOnHide);   //This event is fired immediately when the hide instance method has been called.
     $('#replayerModal').on('hidden.bs.modal', replayerOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
-    $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden);
+    $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
 }
 
 
+/** destroys created chart
+ * 
+ */
 function textGraphOnHidden(){
-    modalJsonLog=[];
     chart.destroy();
 }
 
 
 /** This event is fired when the modal has been made visible to the user 
- * 
+ *  Make first element in event list active
  */
 function replayerOnShown(){
     $('#event-list-row-0').focus();   
 }
 
 
-/**This event is fired immediately when the hide instance method has been called.
- * 
+/** This event is fired immediately when the hide instance method has been called.
+ *  Event list will be scrolled back to top
  */
 function replayerOnHide(){
     $('#modal-sidebar-event-list').scrollTop(0);
@@ -127,7 +126,7 @@ function showLogInputData(){
  */
 function switchListItem(keyEvent){
     if (keyEvent.code=="Tab" || keyEvent.type=="click"){
-        if (!$("#input-analysis-type")[0].checked){ //Multiple student analysis
+        if ($("#input-analysis-type")[0].checked){ //Multiple student analysis
             $('.failid.active').removeClass('active');   
         }
         $(".tab-pane.active").removeClass('active show');   
@@ -139,11 +138,12 @@ function switchListItem(keyEvent){
 }
 
 
-
+/** scroll replayer event rows with arrow keys
+ * 
+ */
 function onKeyDown(keyEvent){
     if(["ArrowUp","ArrowDown"].indexOf(keyEvent.code) > -1) {
         keyEvent.preventDefault();
-        //console.log(keyEvent);
         if(keyEvent.code=="ArrowUp"){
             $(".event-list-row.active").prev().focus();
         }else if(keyEvent.code=="ArrowDown"){
@@ -153,7 +153,9 @@ function onKeyDown(keyEvent){
 } 
 
 
-
+/** switch between grouped log file folders in analysed files
+ * 
+ */
 function switchFolder(keyEvent){
     if (keyEvent.code=="Tab"){
         $(this).click();
@@ -235,6 +237,12 @@ function fileSubmit(){
 }
 
 
+/** Zipfiles are recursively read and sent to be analysed
+ * 
+ * @param {*} entryId - unique identifier
+ * @param {*} zipFile - zipFile object
+ * @param {*} path - path to current zipFile object
+ */
 function parseZipFile(entryId, zipFile, path=''){
     var new_zip = new JSZip(); //new instance
     new_zip.loadAsync(zipFile)
@@ -258,10 +266,11 @@ function parseZipFile(entryId, zipFile, path=''){
 
 
 /**
- * 
- * @param {ZipObject} file - reads the string
- * @param {String} panelId - id of panel where to add analysation content 
+ * @param {*} file - file object
  * @param {String} entryId - id of file analysed
+ * @param {*} type - describes what to do with read object
+ * @param {*} path - path of current file
+ * @param {boolean} isZipObject - describes wether file object is zip object
  */
 function readObject(file, entryId, type="analyse", path='', isZipObject = false){
     if (isZipObject){
@@ -271,7 +280,6 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
             try {
                 handleObject(JSON.parse(text), file, entryId, path, isZipObject, type);
             } catch (e){
-                //console.log('Error reading zip file.');
                 console.log(e);
                 if(type=="analyse"){
                     errorAnalysing.push(path+file.name);
@@ -288,8 +296,7 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
                 const text = event.target.result;
                 try{
                     handleObject(JSON.parse(text), file, entryId, path, isZipObject, type);
-                } catch (e){
-                    //console.log('Error reading text file.');
+                } catch (e){ 
                     console.log(e);
                     if(type=="analyse"){
                         errorAnalysing.push(path+file.name);
@@ -304,6 +311,15 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
 }
 
 
+/**
+ * 
+ * @param {JSON} jsonLog - log content
+ * @param {*} file - file object
+ * @param {*} entryId - id of file analysed
+ * @param {*} path - path of current file
+ * @param {*} isZipObject - describes wether file object is zip object
+ * @param {*} type - describes what to do with read object
+ */
 function handleObject(jsonLog, file, entryId, path, isZipObject, type){
     if (type==="analyse"){
         analyse( jsonLog, file, entryId, path, isZipObject);
@@ -313,9 +329,13 @@ function handleObject(jsonLog, file, entryId, path, isZipObject, type){
 }
 
 
-/**
+/** analyses give jsonlog and add analysation content
  * 
- * @param {JSON object} jsonLog -extracts info from
+ * @param {*} jsonLog - log content
+ * @param {*} file - file object
+ * @param {*} entryId - id of file analysed
+ * @param {*} path - path of current file
+ * @param {*} isZipObject - describes wether file object is zip object
  */
 function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     const startTime=new Date(jsonLog[0].time);
@@ -459,9 +479,13 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
 }
 
 
-/**creates list groups tab and panel Single student analysis
+/** adds log file row to analysed files and creates analysed card
  * 
- * @param {String or Integer} entryId marks unique id for list groups defining attributes
+ * @param {*} entryId - marks unique id for list groups defining attributes
+ * @param {*} panelId - id of file analysed
+ * @param {*} file  - file object
+ * @param {*} isZipObject - describes wether file object is zip object
+ * @param {*} path - path of current file
  */
 function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=''){
     var tabList = $("#log-analysis-groups");
@@ -493,7 +517,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
 
     var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
 
-    if (!typeOfAnalysis){ //Multiple student analysis
+    if (typeOfAnalysis){ //Multiple student analysis
         if(tabList[0].childElementCount===0){//first entry
             var accordion=`<div class="accordion" id="multiple-student-list"></div>`;
             tabList.append(accordion);
@@ -541,7 +565,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
     tabPanel.append(newTabPanelElement);
     
     $(`#list-${entryId}-list`).keyup(switchListItem); //adds event that switches list items when tab pressed
-    if (!typeOfAnalysis){ //Multiple student analysis
+    if (typeOfAnalysis){ //Multiple student analysis
         $(`#list-${entryId}-list`).click(switchListItem);
     }
 
@@ -556,7 +580,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
  * @param {string} tableId 
  * @param {json object} data 
  */
-function displayDataTable(tableId,data){
+function displayDataTable( tableId, data){
     const tbody=$('#'+tableId+" tbody");
     tbody.empty();
     for(const key in data){
@@ -567,7 +591,7 @@ function displayDataTable(tableId,data){
     }
 }
 
-/**
+/** return date which is converted to en-GB LocaleString
  * 
  * @param {Date} date 
  */
@@ -576,8 +600,8 @@ function getDate1(date){
 }
 
 
-/**  readFileForModal - old
- * 
+/**  already analysed file is passed to be read and the type is chosen 
+ *  based on what button was clicked
  */
 function readAnalysedFile(){
 
@@ -595,9 +619,10 @@ function readAnalysedFile(){
 }
 
 
-/** populateModal - old name
+/** Parses jsonLog and caches parced log content to jsonLog. 
  * 
- * @param {*} jsonLog 
+ * @param {*} jsonLog - log content
+ * @param {*} type - describes what to do with read object
  */
 function parseLogFile(jsonLog, type){
     const eventListGroup=$('#modal-sidebar-event-list');
@@ -727,6 +752,13 @@ function parseLogFile(jsonLog, type){
 }
 
 
+/** Edits replayerFiles, shellText based on logevent.
+ * 
+ * @param {Array} replayerFiles - contains array objects of opened files and their contents
+ * @param {String array} shellText - content of shell
+ * @param {*} logEvent - current jsonlog event object
+ * @returns edited replayerFiles, shellText
+ */
 function addLogEvent(replayerFiles, shellText, logEvent){
     var activeIndex=getActiveIndex(replayerFiles);
     if (logEvent.sequence=='Open' || logEvent.sequence=='NewFile'){
@@ -742,7 +774,7 @@ function addLogEvent(replayerFiles, shellText, logEvent){
             var filenameList=logEvent.filename.split('\\');
             filename=filenameList[filenameList.length-1];
         }
-        replayerFiles.push({"active":true, "filename":filename, "codeViewText":[]});
+        replayerFiles.push({"active":true, "text_widget_id":logEvent.text_widget_id, "filename":filename, "codeViewText":[]});
 
     }else if (logEvent.sequence=='SaveAs'){
         var filenameList=logEvent.filename.split('\\');
@@ -763,11 +795,27 @@ function addLogEvent(replayerFiles, shellText, logEvent){
         }else if(logEvent.text_widget_class=='ShellText'){
             var shellText=addChangesToText(shellText,logEvent);
         }
+    }else if(logEvent.sequence=='<Button-1>' && logEvent.text_widget_class=='CodeViewText'){ //switch files
+        if(activeIndex!=-1){
+            replayerFiles[activeIndex].active=false;
+        }
+        for(var i=0; i<replayerFiles.length;i++){
+            if(replayerFiles[i].text_widget_id==logEvent.text_widget_id){
+                replayerFiles[i].active=true;
+                break;    
+            }
+        }
+
     }
     return [replayerFiles, shellText];
 }
 
 
+/**
+ * 
+ * @param {*} objectList list of objects containing an active property.
+ * @returns objectlist index of object with active property set to true.
+ */
 function getActiveIndex( objectList){
     for(var i=0; i<objectList.length;i++){
         if(objectList[i].active){
@@ -778,6 +826,12 @@ function getActiveIndex( objectList){
 }
 
 
+/**
+ * 
+ * @param {String array} ideText - text added or removed based on logEvent
+ * @param {*} logEvent - current jsonlog event object
+ * @returns edited ideText
+ */
 function addChangesToText(ideText, logEvent){
 
     if(logEvent.sequence=='TextInsert'){
@@ -838,14 +892,15 @@ function addChangesToText(ideText, logEvent){
 
 /**
  * 
- * @param {*} stringToEncode 
+ * @param {String} stringToEncode 
+ * @returns stringToEncode which is made html safe 
  */
 function encodeEntitie( stringToEncode){
     return stringToEncode.replaceAll('<','&lt;').replaceAll('>','&gt;');
 }
 
 
-/**
+/** When event list row clicked in replayer, the event state is displayed in replayer
  * 
  */
 function handleEventListFocus(){
@@ -863,12 +918,18 @@ function handleEventListFocus(){
 
     var currentObject=modalJsonLog[jsonLogIndex];
 
+    var attrVal;
+
     for(const attribute in currentObject){
         if(attribute=='analysation_cache'){continue;}
+        attrVal=currentObject[attribute];
+        if(['sequence','text'].includes(attribute)){
+            attrVal=encodeEntitie(attrVal);
+        }
         eventListData=`
                     <div class="row event-row">
                         <div class="col-6">${attribute}</div>
-                        <div class="col-6 json-value">${currentObject[attribute]}</div>
+                        <div class="col-6 json-value">${attrVal}</div>
                     </div>    
                     `;
 
@@ -906,5 +967,5 @@ function handleEventListFocus(){
 
     $('#modal-main-shell').scrollTop( $('#modal-main-shell')[0].scrollHeight); //scroll to bottom of shell
 
-    hljs.highlightAll(); //colour code
+    hljs.highlightAll(); //colour the code in replayer
 }
