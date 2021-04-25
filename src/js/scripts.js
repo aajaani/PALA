@@ -391,7 +391,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'Elapsed time':elapsedTime,
         'Run count':runCount,
         'Error count':errorCount,
-        'Copy-paste count':copyPasteCount,
+        'Paste text count':copyPasteCount,
         'Debug count':debugCount,
         'Files created':[...filesCreated].join('<br>'),
         'Files ran':[...filesRan].join('<br>'),
@@ -417,7 +417,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableCopyPaste=`
             <div class="analysed-panel-btn-block" id='copiedTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste-${entryId}" role="button" aria-expanded="false" aria-controls="collapseCopyPaste-${entryId}">
-                Copy/Pasted texts (${copyPasteCount})
+                Pasted texts (${copyPasteCount})
                 </a>
                 <div class="collapse" id="collapseCopyPaste-${entryId}">
                     <div class="card card-body">
