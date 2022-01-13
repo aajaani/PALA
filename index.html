@@ -129,67 +129,82 @@
   </div>
 
   <!-- replayer Modal -->
-  <div class="modal fade" id="replayerModal" tabindex="-1" role="dialog" aria-labelledby="replayerModal" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+  <div class="modal modal-sb-space fade" id="replayerModal" tabindex="-1" role="dialog" aria-labelledby="replayerModal" aria-hidden="true">
+    <div class="modal-dialog" role="document">
       <div class="modal-content">
         <div class="modal-body replayer-body">
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
-          <div class="d-flex flex-row modal-main">
-            <div class="p-2 modal-sidebar">
-             
-              <div class="modal-sidebar-header">
-                <div class="row modal-upper">
-                  <div class="col-6">Event</div>
-                  <div class="col-6">Pause (sec)</div>
-                </div>
-              </div>
-
-              <div id="modal-sidebar-event-list" class="event-list modal-middle scroll-y">
-                  
-              </div>
-              
-              <div id="modal-sidebar-event-data-header" class="modal-sidebar-header">
-                <div class="row">
-                  <div class="col-6">Attribute</div>
-                  <div class="col-6">Value</div>
-                </div>
-              </div>
 
 
-              <div id="modal-sidebar-event-data-list" class="event-list modal-bottom scroll-auto">
+          <div class="modal-main grid" style="grid-template-columns: 1fr 10px 4fr;">
+            <div class="modal-sidebar">
+              <div class="modal-expand">
+                <i id="replayer-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandReplayer(this);"></i>
+              </div>
+              <div class='row justify-content-center'>
+                <label id="replayer-speed-range-label" for="replayer-speed-range">Play speed <b><span id="replayer-speed">1</span>x</b></label>
+                <input id="replayer-speed-range" type="range" class="form-control-range" value="1" min="1" max="32" onchange="updateReplayerSpeed(this.value);">
+              </div>
+              <div class="control-panel row justify-content-center">
+                <i id="replayer-play" class="fa fa-play-circle-o btn-replayer-controls" aria-hidden="true"></i> 
+                <i id="replayer-pause" class="fa fa-pause-circle-o btn-replayer-controls d-none" aria-hidden="true"></i>
               </div>
 
+              <div class="modal-sidebar-header row modal-upper">
+                <div class="col-6">Event</div>
+                <div class="col-6">Pause (sec)</div>
+              </div>
+
+              <div id="modal-sidebar-event-list" class="event-list modal-middle scroll-y"></div>  
             </div>
-            <div class="p-2 modal-main-content">
-              <div id="modal-main-header" class="d-flex flex-wrap modal-upper scroll-y-auto">
+
+            <div class="vertical-gutter gutter-col-1"></div>
+
+            <div class="modal-main-content">
+              <div id='modal-main-header-replayer' class="modal-main-header">
               </div>
-              <div id="modal-main-ide" class="modal-middle scroll-auto">
-                <pre><code id="modal-program-text" class="python"></code></pre>
-              </div>
-              <div class="spacer">
-                <div class="file-shell active">Shell</div>
-              </div>
-              <div id="modal-main-shell" class="modal-bottom scroll-auto">
-                <pre><code id="modal-shell-text" class="python-repl"></code></pre>
+
+              <div id="modal-main-enviroment" class="grid" style="grid-template-rows: 2fr 20px 1fr;">
+                <div id="modal-main-ide" class="modal-middle scroll-auto">
+                  <pre><code id="modal-program-text" class="python"></code></pre>
+                </div>
+                <div class="horizontal-gutter">
+                  <div class="file-shell active">Shell</div>
+                </div>
+                <div id="modal-main-shell" class="modal-bottom scroll-auto">
+                  <pre><code id="modal-shell-text" class="python-repl"></code></pre>
+                </div>  
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>
   </div> 
 
   <!-- program text length graph Modal -->
-  <div class="modal fade" id="textGraphModal" tabindex="-1" role="dialog" aria-labelledby="textGraphModal" aria-hidden="true">
+  <div class="modal modal-sb-space fade" id="textGraphModal" tabindex="-1" role="dialog" aria-labelledby="textGraphModal" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
       <div class="modal-content graph-content">
         <div class="modal-body">
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
-          <canvas id="text-length-graph"></canvas>  
+          <div class="modal-expand">
+            <i id="graph-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandReplayer(this);"></i>
+          </div>
+          
+          <div class="modal-main-content">
+            <div id='modal-main-header-graph' class="modal-main-header">
+            </div>
+            <canvas id="text-length-graph"></canvas> 
+          </div>  
+
+
+
         </div>
       </div>
     </div>
@@ -209,6 +224,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.0.2/dist/chart.min.js"></script>
   <!-- Chart js date adapter -->
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <!-- Split.js grid -->
+  <script src="https://cdn.jsdelivr.net/npm/split-grid@1.0.11/dist/split-grid.min.js"></script>
   <!-- my JavaScript -->
   <script src="src/js/scripts.js"></script>
 </body>

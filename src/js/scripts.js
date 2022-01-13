@@ -8,6 +8,7 @@ var files=[];
 var modalJsonLog=[];
 var logCacheInterval=50;
 var errorAnalysing=[];
+var textGraphDataLog={};
 
 var chart;
 
@@ -20,6 +21,19 @@ $(function() {
         trigger: 'focus'
       }); 
 
+    //$('#replayerModal').modal(); //delete
+    //$('#textGraphModal').modal(); //delete 
+
+    Split({
+        columnGutters: [{
+        track: 1,
+        element: document.querySelector('.vertical-gutter'),
+      }],
+      rowGutters: [{
+          track: 1,
+        element: document.querySelector('.horizontal-gutter'),
+      }]
+    });
 });
  
 
@@ -37,6 +51,7 @@ function addListeners(){
     $('#replayerModal').on('hidden.bs.modal', replayerOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
     $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
+    $('.btn-replayer-controls').click(replayerAutoPlay)
 }
 
 
@@ -45,6 +60,8 @@ function addListeners(){
  */
 function textGraphOnHidden(){
     chart.destroy();
+    $("#modal-main-header-graph").empty();
+    textGraphDataLog={};
 }
 
 
@@ -70,10 +87,11 @@ function replayerOnHide(){
 function replayerOnHidden(){
     modalJsonLog=[];
     $('#modal-sidebar-event-list').empty();  //eemaldame kirjed replayerist
-    $("#modal-sidebar-event-data-list").empty();
-    $("#modal-main-header").empty();
+    //$("#modal-sidebar-event-data-list").empty();
+    $("#modal-main-header-replayer").empty();
     $("#modal-program-text").empty();
     $("#modal-shell-text").empty();
+    resetReplayerPlayBtn();
 }
 
 
@@ -133,6 +151,25 @@ function switchListItem(keyEvent){
         
         if (keyEvent.code=="Tab"){
             $(this).tab('show');
+        }
+
+        if ($("body").hasClass('modal-open')){
+
+            var entryId=$(this)[0].attributes['aria-controls'].value
+
+            if (files[entryId]==null){
+                alert('File not found in input space.')
+            }
+            var isZipObject=files[entryId].type=="zip";
+            if($('#replayerModal').hasClass('show')){
+                replayerOnHidden();
+                $('#modal-sidebar-event-list').scrollTop(0);
+                readObject(files[entryId].file, '', "replayer", '', isZipObject);
+            }else if($('#textGraphModal').hasClass('show')){
+                chart.destroy();
+                textGraphDataLog={};
+                readObject(files[entryId].file, '', "textGraph", '', isZipObject);
+            }
         }
     }
 }
@@ -200,6 +237,8 @@ function fileSubmit(){
     showSidebar();
     files=[];
     errorAnalysing=[];
+
+    console.log(logInput[0].files);
 
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
@@ -512,7 +551,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
     }
     fileName=fileName.replaceAll('_','-');
     var newTabListElement = `<a class="list-group-item list-group-item-action failid ${setActive}" 
-                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}">
+                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}" data-order-by-name="${fileName}">
                             <span class="badge badge-primary badge-pill">${fileSize}</span><br>${fileName}</a>`;
 
     var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
@@ -548,7 +587,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
                     show = 'show';
                     expanded = 'true';
                 }
-                var studentListElementName=`<a id="${folderNameId}" class="btn list-group-item list-group-item-action student-name" data-toggle="collapse" data-target="#${multipleStudentId}" aria-expanded="${expanded}" aria-controls="${multipleStudentId}" tabindex="0">
+                var studentListElementName=`<a id="${folderNameId}" class="btn list-group-item list-group-item-action student-name" data-toggle="collapse" data-target="#${multipleStudentId}" aria-expanded="${expanded}" aria-controls="${multipleStudentId}" tabindex="0" data-order-by-name="${firstFolderName}">
                                                     ${firstFolderName}
                                                 </a>`;
                 var studentListElementPanel=`<div id="${multipleStudentId}" class="collapse ${show}" aria-labelledby="${firstFolderName}" data-parent="#multiple-student-list">
@@ -612,9 +651,9 @@ function readAnalysedFile(){
     }
     var isZipObject=files[entryId].type=="zip";
     if($(this)[0].attributes['data-target'].value=='#replayerModal'){
-        readObject(files[entryId].file, '', type="replayer", '', isZipObject);
+        readObject(files[entryId].file, '', "replayer", '', isZipObject);
     }else if($(this)[0].attributes['data-target'].value=='#textGraphModal'){
-        readObject(files[entryId].file, '', type="textGraph", '', isZipObject);
+        readObject(files[entryId].file, '', "textGraph", '', isZipObject);
     }
 }
 
@@ -628,6 +667,13 @@ function parseLogFile(jsonLog, type){
     const eventListGroup=$('#modal-sidebar-event-list');
     if(type=="replayer"){
         eventListGroup.empty();
+    }else if(type=="textGraph"){
+        if (! textGraphDataLog.hasOwnProperty('AllFiles')){
+            textGraphDataLog['AllFiles']=[];
+        }
+        if (! textGraphDataLog.hasOwnProperty('ShellText')){
+            textGraphDataLog['ShellText']=[];
+        }
     }
 
     var eventList;
@@ -652,7 +698,7 @@ function parseLogFile(jsonLog, type){
 
             if(i>1){
                 split=(new Date(jsonLog[i].time))-(new Date(jsonLog[i-1].time));
-                split=Math.floor(split / 1e3)
+                split=Math.floor(split / 1e3);
                 if(split<1){
                     split='';
                 }
@@ -667,23 +713,64 @@ function parseLogFile(jsonLog, type){
 
             eventListGroup.append(eventList);
         }else if(type=="textGraph"){
-            if (jsonLog[i].sequence=='TextInsert' || jsonLog[i].sequence=='TextDelete'){
-                data.push({"x": jsonLog[i].time,"y":replayerFiles.reduce(reducerFiles,0)}); //.split('T').join(' ')  jsonLog[i].time
+            if ((jsonLog[i].sequence=='TextInsert' || jsonLog[i].sequence=='TextDelete') && ((new Date(jsonLog[i].time))-(new Date(jsonLog[i-1].time)))>1/*ms*/){
+                textGraphDataLog['AllFiles'].push({"x": jsonLog[i].time,"y":replayerFiles.reduce(reducerFiles,0)});
+                if(jsonLog[i].text_widget_class=='ShellText'){
+                    textGraphDataLog['ShellText'].push({"x": jsonLog[i].time,"y":shellText.reduce(reducerStringArray,0)});
+                }else{
+                    let textWidgetId=jsonLog[i].text_widget_id;
+                    if (! textGraphDataLog.hasOwnProperty(textWidgetId)){
+                        textGraphDataLog[textWidgetId]=[];
+                    }
+                    let indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==textWidgetId);
+                    if(indexOfFile!=-1){
+                        textGraphDataLog[textWidgetId].push({"x": jsonLog[i].time,"y":replayerFiles[indexOfFile].codeViewText.reduce(reducerStringArray,0)});
+                    }
+                }
+                //data.push(textGraphDataObj); //.split('T').join(' ')  jsonLog[i].time
             }
         }
     }
     if(type=="replayer"){
         $('.event-list-row').focus(handleEventListFocus);
         modalJsonLog=jsonLog;
+        $('#event-list-row-0').focus();
     }else if(type=="textGraph"){
-    chart = new Chart( 'text-length-graph', {
+/*     console.log(replayerFiles);   
+    console.log(shellText); 
+    console.log(shellText.reduce(reducerStringArray,0));  */
+    //console.log(textGraphDataLog);  
+    $("#modal-main-header-graph").empty();
+    var file=`<div class="file active" onclick="handleTextGraphDataChange(this);" data-text_widget_id="AllFiles">All program files</div>`;
+    $("#modal-main-header-graph").append(file);
+    file=`<div class="file" onclick="handleTextGraphDataChange(this);" data-text_widget_id="ShellText">Shell</div>`;
+    $("#modal-main-header-graph").append(file);
+    for(var i=0;i<replayerFiles.length;i++){
+        file=`<div class="file " onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+        $("#modal-main-header-graph").append(file);
+    }
+    chart = getNewChart('AllFiles'); 
+    }
+}
+
+
+function handleTextGraphDataChange(value){
+    $('.file').removeClass('active');
+    $(value).addClass('active');
+    chart.destroy();
+    chart = getNewChart($(value)[0].attributes['data-text_widget_id'].value);
+}
+
+
+function getNewChart(index){
+    return new Chart( 'text-length-graph', {
         // The type of chart we want to create  
         type: 'line',
         // The data for our dataset
         data: {
             datasets: [{
               label: 'Character count',
-              data:data,
+              data:textGraphDataLog[index],
               borderColor: 'rgba(0, 98, 168, 1)',
               backgroundColor: 'rgba(0, 98, 168, 0.1)',
               fill: true,
@@ -734,9 +821,9 @@ function parseLogFile(jsonLog, type){
                         }
                     },
                     time: {
-                        unit: 'second',
+                        unit: 'minute',
                         displayFormats: {
-                            second: 'dd/MM HH:mm'
+                            minute: 'dd/MM HH:mm'
                         },
                         tooltipFormat: 'dd/MM/yyyy HH:mm:ss'
                     } ,    
@@ -747,8 +834,7 @@ function parseLogFile(jsonLog, type){
                 }
             }
         }
-    }); 
-    }
+    });
 }
 
 
@@ -761,14 +847,18 @@ function parseLogFile(jsonLog, type){
  */
 function addLogEvent(replayerFiles, shellText, logEvent){
     var activeIndex=getActiveIndex(replayerFiles);
-    if (logEvent.sequence=='Open' || logEvent.sequence=='NewFile'){
+    let indexOfFile=-2;
+    if (logEvent.text_widget_id!=null && logEvent.sequence!='EditorTextCreated' && logEvent.text_widget_class!='ShellText'){
+        indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==logEvent.text_widget_id);
+    }
+    if (['Open','NewFile'].includes(logEvent.sequence) || indexOfFile==-1){
 
         if(activeIndex!=-1){
             replayerFiles[activeIndex].active=false;
         }
 
         var filename="";
-        if(logEvent.sequence=='NewFile'){
+        if(logEvent.sequence=='NewFile' || (indexOfFile==-1 && logEvent.sequence!='Open')){
             filename="<untitled>";
         }else if(logEvent.sequence=='Open'){
             var filenameList=logEvent.filename.split('\\');
@@ -903,53 +993,49 @@ function encodeEntitie( stringToEncode){
 /** When event list row clicked in replayer, the event state is displayed in replayer
  * 
  */
-function handleEventListFocus(){
-    var jsonLogIndex=$(this)[0].attributes['data-logfile-object-index'].value;
-    var eventListId=$(this)[0].attributes['id'].value;
-    $(".event-list-row.active").removeClass('active');
-    $("#"+eventListId).addClass('active');
+function handleEventListFocus(value){
+    var fileSwitch=$(value).hasClass('file');
 
-    const eventListDataGroup=$('#modal-sidebar-event-data-list');
-
-    eventListDataGroup.empty();
-
-    var eventListData;
-    var attrIndex=0;
-
-    var currentObject=modalJsonLog[jsonLogIndex];
-
-    var attrVal;
-
-    for(const attribute in currentObject){
-        if(attribute=='analysation_cache'){continue;}
-        attrVal=currentObject[attribute];
-        if(['sequence','text'].includes(attribute)){
-            attrVal=encodeEntitie(attrVal);
-        }
-        eventListData=`
-                    <div class="row event-row">
-                        <div class="col-6">${attribute}</div>
-                        <div class="col-6 json-value">${attrVal}</div>
-                    </div>    
-                    `;
-
-        eventListDataGroup.append(eventListData);
-        attrIndex++;
+    var jsonLogIndex=0
+    if(fileSwitch){
+        jsonLogIndex=$('.event-list-row.active')[0].attributes['data-logfile-object-index'].value;
+    }else{
+        jsonLogIndex=$(this)[0].attributes['data-logfile-object-index'].value;
+        var eventListId=$(this)[0].attributes['id'].value;
+        $(".event-list-row.active").removeClass('active');
+        $("#"+eventListId).addClass('active');
     }
-
 
     var nearestCacheIndex=jsonLogIndex-(jsonLogIndex%logCacheInterval);
 
     var replayerFiles=JSON.parse(JSON.stringify(modalJsonLog[nearestCacheIndex].analysation_cache.replayerFiles));
     var shellText=JSON.parse(JSON.stringify(modalJsonLog[nearestCacheIndex].analysation_cache.shellText));
-
-    var activeIndex=getActiveIndex(replayerFiles);
     
+    var ideIndex=0;
     for(var i=nearestCacheIndex+1;i<=jsonLogIndex;i++){
         [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, modalJsonLog[i]);
+        
+         if(modalJsonLog[jsonLogIndex].text_widget_class=='CodeViewText'){
+            if(modalJsonLog[jsonLogIndex].sequence=="TextInsert"){
+                ideIndex=modalJsonLog[jsonLogIndex].index;
+            }else if(modalJsonLog[jsonLogIndex].sequence=="TextDelete"){
+                ideIndex=modalJsonLog[jsonLogIndex].index1;
+            }
+        }  
     }
     
     var activeIndex=getActiveIndex(replayerFiles);
+    if(fileSwitch){
+        let text_widget_id = $(value)[0].attributes['data-text_widget_id'].value;
+        replayerFiles.map((obj, index) => {
+            if(obj.text_widget_id==text_widget_id){
+                activeIndex=index;
+                obj.active=true;
+            }else{
+                obj.active=false;
+            }
+          })
+    }
     if(replayerFiles[activeIndex]!=null){
         var programText=replayerFiles[activeIndex].codeViewText.join("\n");
         $("#modal-program-text").text(programText);
@@ -959,13 +1045,64 @@ function handleEventListFocus(){
         $("#modal-shell-text").text(shellText.join("\n"));
     }
 
-    $("#modal-main-header").empty()
+    $("#modal-main-header-replayer").empty()
     for(var i=0;i<replayerFiles.length;i++){
-        var file=`<div class="p-2 file ${replayerFiles[i].active ? 'active' : ''}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
-        $("#modal-main-header").append(file);
+        var file=`<div class="file ${replayerFiles[i].active ? 'active' : ''}" onclick="handleEventListFocus(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+        $("#modal-main-header-replayer").append(file);
     }
 
     $('#modal-main-shell').scrollTop( $('#modal-main-shell')[0].scrollHeight); //scroll to bottom of shell
 
     hljs.highlightAll(); //colour the code in replayer
+
+    //scroll replayer if text insert
+    if(replayerFiles[activeIndex]!=null && ideIndex!=0){
+        let ideIndexRow=ideIndex.split('.')[0];
+        let scrollHeight=$('#modal-main-ide')[0].scrollHeight/replayerFiles[activeIndex].codeViewText.length*ideIndexRow;
+        $('#modal-main-ide').scrollTop(scrollHeight);
+    }
+
+}
+
+
+function updateReplayerSpeed(val) {
+    $('#replayer-speed').text(val); 
+  }
+
+function expandReplayer(val) {
+    if($(val)[0].id=='replayer-expand-btn'){
+        $('#replayerModal').toggleClass('modal-sb-space');
+    }else if($(val)[0].id=='graph-expand-btn'){
+        $('#textGraphModal').toggleClass('modal-sb-space');
+    }
+  }
+
+async function replayerAutoPlay(){
+    $('.btn-replayer-controls').toggleClass('d-none');
+    await sleep(0);
+    var btn=$(this)[0].id;
+    if(btn=='replayer-pause'){
+        return;
+    }
+    var speed=parseInt($('#replayer-speed-range').val());
+    var jsonLogIndex=parseInt($('.event-list-row.active')[0].attributes['data-logfile-object-index'].value);
+
+    for(var jsonLogIndex;jsonLogIndex<=modalJsonLog.length;jsonLogIndex+=speed){
+        if($('.btn-replayer-controls.d-none')[0].id=='replayer-pause'){
+            break;
+        }
+        speed=parseInt($('#replayer-speed-range').val());
+        await sleep(30);
+        $('#event-list-row-'+jsonLogIndex).focus();
+    }
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+function resetReplayerPlayBtn(){
+    if($('#replayer-play').hasClass('d-none')){
+        $('.btn-replayer-controls').toggleClass('d-none');
+    }
 }
