@@ -296,6 +296,8 @@ function parseZipFile(entryId, zipFile, path=''){
                     }
                     parseZipFile(entryId+'-'+i, file, path+files[i].name);
                 });
+            }else{
+                errorAnalysing.push(files[i].name);
             }
         }
     });
