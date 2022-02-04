@@ -238,8 +238,6 @@ function fileSubmit(){
     files=[];
     errorAnalysing=[];
 
-    console.log(logInput[0].files);
-
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
             readObject( logInput[0].files[i], i,"analyse","",false);
@@ -551,7 +549,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
     }
     fileName=fileName.replaceAll('_','-');
     var newTabListElement = `<a class="list-group-item list-group-item-action failid ${setActive}" 
-                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}" data-order-by-name="${fileName}">
+                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}" data-filename="${fileName}">
                             <span class="badge badge-primary badge-pill">${fileSize}</span><br>${fileName}</a>`;
 
     var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
@@ -587,20 +585,60 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
                     show = 'show';
                     expanded = 'true';
                 }
-                var studentListElementName=`<a id="${folderNameId}" class="btn list-group-item list-group-item-action student-name" data-toggle="collapse" data-target="#${multipleStudentId}" aria-expanded="${expanded}" aria-controls="${multipleStudentId}" tabindex="0" data-order-by-name="${firstFolderName}">
+                var studentListElementName=`<a id='${folderNameId}' class='btn list-group-item list-group-item-action student-name student-name-folder' data-toggle='collapse' data-target='#${multipleStudentId}' aria-expanded='${expanded}' aria-controls='${multipleStudentId}' tabindex='0'>
                                                     ${firstFolderName}
                                                 </a>`;
-                var studentListElementPanel=`<div id="${multipleStudentId}" class="collapse ${show}" aria-labelledby="${firstFolderName}" data-parent="#multiple-student-list">
+                var studentListElementPanel=`<div id="${multipleStudentId}" class="student-folder-files collapse ${show}" aria-labelledby="${firstFolderName}" data-parent="#multiple-student-list">
                                             </div>`;
-                tabList.append(studentListElementName);
-                tabList.append(studentListElementPanel);
+                
+                //folder ordering
+                let students = $('.student-name-folder');
+                if (students.length==0){
+                    tabList.append(studentListElementName);
+                    tabList.append(studentListElementPanel);
+                }else{ //order
+                    for(let i=0;i<students.length;i++){
+                        if(students[i].id>folderNameId){ //current folder is alphapetically higher
+                            $(students[i]).before(studentListElementName);
+                            $(students[i]).before(studentListElementPanel);
+                            break;
+                        }
+                        if(i==students.length-1){ //last in order
+                            tabList.append(studentListElementName);
+                            tabList.append(studentListElementPanel);
+                            break;
+                        }
+                    }
+                }
+                //folder ordering end
             }
             tabList=$('#'+multipleStudentId);
             $('#'+folderNameId).keyup(switchFolder);
         }
     }
 
-    tabList.append(newTabListElement);
+
+    //file ordering
+    let files = $('.failid');
+    if (typeOfAnalysis){ //Multiple student analysis
+        files = $('#'+multipleStudentId+' .failid');
+    }  
+
+    if (files.length==0){
+        tabList.append(newTabListElement);
+    }else{ //order
+        for(let i=0;i<files.length;i++){
+            if(files[i].dataset.filename>fileName){ //current folder is alphapetically higher
+                $(files[i]).before(newTabListElement);
+                break;
+            }
+            if(i==files.length-1){ //last in order
+                tabList.append(newTabListElement);
+                break;
+            }
+        }
+    }
+    //file ordering end
     tabPanel.append(newTabPanelElement);
     
     $(`#list-${entryId}-list`).keyup(switchListItem); //adds event that switches list items when tab pressed
@@ -608,8 +646,12 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
         $(`#list-${entryId}-list`).click(switchListItem);
     }
 
-    if(tabList[0].childElementCount===1){ //turn first file on
-        $('.failid').first().focus();
+    if(!$('.failid').first().hasClass('active')){ //turn first file on
+        if (typeOfAnalysis && $('.failid').first().is(":hidden")){ //Multiple student analysis
+            $('.student-folder-files.show').removeClass('show');
+            $('.student-folder-files').first().addClass('show');
+        }
+        $('.failid').first().click();
     }
 }
 
