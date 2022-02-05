@@ -244,7 +244,9 @@ function fileSubmit(){
         }else if (supportedArchiveTypes.includes(logInput[0].files[i].type)){ //if zip file
             parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
         }else{ //wrong type
-            errorAnalysing.push(logInput[0].files[i].name);
+            if(!logInput[0].files[i].name.includes("veebitekst.html")){
+                errorAnalysing.push(logInput[0].files[i].name);
+            }
         }
     }
 
@@ -297,7 +299,9 @@ function parseZipFile(entryId, zipFile, path=''){
                     parseZipFile(entryId+'-'+i, file, path+files[i].name);
                 });
             }else{
-                errorAnalysing.push(files[i].name);
+                if(! RegExp('veebitekst\.html').test(files[i].name)){ //not veebitekst\.html
+                    errorAnalysing.push(path+'/'+files[i].name);
+                }
             }
         }
     });
