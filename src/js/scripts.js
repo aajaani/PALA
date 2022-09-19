@@ -412,7 +412,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Debug')){
             debugCount++;
         }
-        if(jsonLog[i].sequence==='<<Paste>>' && jsonLog[i].text_widget_class==="CodeViewText"){
+        if(jsonLog[i].sequence==='<<Paste>>' && jsonLog[i].text_widget_class.includes("CodeViewText")){
             copyPasteCount++;
             var date=getDate1(jsonLog[i-1].time)
             copiedTexts[date]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
@@ -924,7 +924,7 @@ function addLogEvent(replayerFiles, shellText, logEvent){
             console.log("Error replayer no active files.\n"+replayerFiles);
         }
     }else if (logEvent.sequence=='TextInsert' || logEvent.sequence=='TextDelete'){
-        if(logEvent.text_widget_class=='CodeViewText'){
+        if(logEvent.text_widget_class.includes('CodeViewText')){
             if(activeIndex!=-1){
                 replayerFiles[activeIndex].codeViewText=addChangesToText(replayerFiles[activeIndex].codeViewText,logEvent);
             }else{
@@ -933,7 +933,9 @@ function addLogEvent(replayerFiles, shellText, logEvent){
         }else if(logEvent.text_widget_class=='ShellText'){
             var shellText=addChangesToText(shellText,logEvent);
         }
-    }else if(logEvent.sequence=='<Button-1>' && logEvent.text_widget_class=='CodeViewText'){ //switch files
+    }else if(logEvent.sequence=='<Button-1>'
+        && logEvent.text_widget_class!=null
+        && logEvent.text_widget_class.includes('CodeViewText')){ //switch files
         if(activeIndex!=-1){
             replayerFiles[activeIndex].active=false;
         }
@@ -1063,7 +1065,8 @@ function handleEventListFocus(value){
     for(var i=nearestCacheIndex+1;i<=jsonLogIndex;i++){
         [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, modalJsonLog[i]);
         
-         if(modalJsonLog[jsonLogIndex].text_widget_class=='CodeViewText'){
+         if(modalJsonLog[jsonLogIndex].text_widget_class!=null
+             && modalJsonLog[jsonLogIndex].text_widget_class.includes('CodeViewText')){
             if(modalJsonLog[jsonLogIndex].sequence=="TextInsert"){
                 ideIndex=modalJsonLog[jsonLogIndex].index;
             }else if(modalJsonLog[jsonLogIndex].sequence=="TextDelete"){
