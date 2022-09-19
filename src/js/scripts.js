@@ -400,7 +400,9 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var copiedTexts={};
     var errorTexts={};
     for(var i=0;i<jsonLog.length;i++){
-        if(jsonLog[i].sequence==='ShellCommand' && jsonLog[i].command_text.slice(0,4)==='%Run'){
+        if(jsonLog[i].sequence==='ShellCommand'
+            && jsonLog[i].command_text.slice(0,4)==='%Run'
+            && !jsonLog[i].command_text.includes('$EDITOR_CONTENT')){
             runCount++;
             filesRan.add(jsonLog[i].command_text.slice(5).replaceAll('\'',''));
         }
