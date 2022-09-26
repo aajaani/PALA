@@ -9,6 +9,7 @@ var modalJsonLog=[];
 var logCacheInterval=50;
 var errorAnalysing=[];
 var textGraphDataLog={};
+var csvValues=[];
 
 var chart;
 
@@ -51,7 +52,34 @@ function addListeners(){
     $('#replayerModal').on('hidden.bs.modal', replayerOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
     $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
-    $('.btn-replayer-controls').click(replayerAutoPlay)
+    $('.btn-replayer-controls').click(replayerAutoPlay);
+    $('#download-csv-button').click(downloadCsv);
+}
+
+
+/**Downloads csv file with results of log analysis
+ *
+ */
+function downloadCsv() {
+    if (csvValues.length == 0) {
+        return;
+    }
+    csvRows = [];
+    csvRows.push(Object.keys(csvValues[0]).join(','));
+    for (const row of csvValues) {
+        csvRows.push(Object.values(row).join(','));
+    }
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    // Creating an object for downloading url
+    const url = window.URL.createObjectURL(blob);
+    // Creating an anchor(a) tag of HTML
+    const a = document.createElement('a');
+    // Passing the blob downloading url
+    a.setAttribute('href', url);
+    let fileDate= (new Date(Date.now())).toISOString().split('.')[0].replaceAll(/:/g,'-');
+    a.setAttribute('download', `log-analysis-${fileDate}.csv`);
+    // Performing a download with click
+    a.click();
 }
 
 
@@ -87,7 +115,6 @@ function replayerOnHide(){
 function replayerOnHidden(){
     modalJsonLog=[];
     $('#modal-sidebar-event-list').empty();  //eemaldame kirjed replayerist
-    //$("#modal-sidebar-event-data-list").empty();
     $("#modal-main-header-replayer").empty();
     $("#modal-program-text").empty();
     $("#modal-shell-text").empty();
@@ -216,17 +243,19 @@ function clearAnalysisResults(){
     $('#log-analysis-results').children().remove();
 }
 
+function getLogFile() {
+    if ($("#input-log-type")[0].checked) { //File input
+        return $("#file-input");
+    } else { //Folder input
+        return $("#folder-input");
+    }
+}
+
 /**
  * Analyse button was clicked
  */
 function fileSubmit(){
-    var logTypeFile=$("#input-log-type")[0].checked;
-
-    if( logTypeFile){ //File input
-        var logInput = $("#file-input");
-    }else{ //Folder input
-        var logInput = $("#folder-input");
-    }
+    var logInput = getLogFile();
 
     if( logInput.val()==''){
         alert("No file entered!");
@@ -237,6 +266,7 @@ function fileSubmit(){
     showSidebar();
     files=[];
     errorAnalysing=[];
+    csvValues=[];
 
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
@@ -366,7 +396,7 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
 function handleObject(jsonLog, file, entryId, path, isZipObject, type){
     if (type==="analyse"){
         analyse( jsonLog, file, entryId, path, isZipObject);
-    }else if(["replayer", "textGraph"].includes(type)){ //type==="replayer" 
+    }else if(["replayer", "textGraph"].includes(type)){
         parseLogFile(jsonLog, type);
     }
 }
@@ -384,22 +414,32 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     const startTime=new Date(jsonLog[0].time);
     const endTime=new Date(jsonLog[jsonLog.length-1].time);
     const elapsedDate=new Date(endTime-startTime);
-    var elapsedTime=elapsedDate.toISOString().slice(11, -5).split(":");
+    let elapsedTime=elapsedDate.toISOString().slice(11, -5).split(":");
     elapsedTime=elapsedTime[0].concat("h, ",elapsedTime[1],"min, ",elapsedTime[2],"sec");
     if(elapsedDate.getDate()>1){
         elapsedTime=(elapsedDate.getDate()-1).toString().concat(" days, ", elapsedTime)
     }
 
-    var errorCount=0;
-    var runCount=0;
-    var copyPasteCount=0;
-    var debugCount=0;
-    var filesCreated=new Set();
-    var filesRan=new Set();
-    var filesOpened=new Set();
-    var copiedTexts={};
-    var errorTexts={};
-    for(var i=0;i<jsonLog.length;i++){
+    let errors = {
+        total : 0,
+        syntaxError: 0,
+        typeError: 0,
+        nameError: 0,
+        valueError: 0,
+        attributeError: 0,
+        texts: {}
+    }
+    let runCount=0;
+    let pasted={
+        total:0,
+        characterCount:0,
+        texts: {}
+    }
+    let debugCount=0;
+    let filesCreated=new Set();
+    let filesRan=new Set();
+    let filesOpened=new Set();
+    for(let i=0;i<jsonLog.length;i++){
         if(jsonLog[i].sequence==='ShellCommand'
             && jsonLog[i].command_text.slice(0,4)==='%Run'
             && !jsonLog[i].command_text.includes('$EDITOR_CONTENT')){
@@ -407,24 +447,35 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             filesRan.add(jsonLog[i].command_text.slice(5).replaceAll('\'',''));
         }
         if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Error') && jsonLog[i].text_widget_class==="ShellText"){
-            errorCount++;
-            var date=getDate1(jsonLog[i].time)
-            errorTexts[date]=jsonLog[i].text;
+            errors.total++;
+            switch(jsonLog[i].text.split(":")[0]){
+                case "SyntaxError": errors.syntaxError++; break;
+                case "TypeError": errors.typeError++; break;
+                case "NameError": errors.nameError++; break;
+                case "ValueError": errors.valueError++; break;
+                case "AttributeError": errors.attributeError++; break;
+            }
+            let date=getDate1(jsonLog[i].time)
+            errors.texts[date]=jsonLog[i].text;
         }
         if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Debug')){
             debugCount++;
         }
-        if(jsonLog[i].sequence==='<<Paste>>' && jsonLog[i].text_widget_class.includes("CodeViewText")){
-            copyPasteCount++;
-            var date=getDate1(jsonLog[i-1].time)
-            copiedTexts[date]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
+        if(jsonLog[i].sequence==='<<Paste>>'
+            && jsonLog[i].text_widget_class!=null
+            && jsonLog[i].text_widget_class.includes("CodeViewText")){
+            pasted.total++;
+            if(jsonLog[i-1].text!=null){
+                pasted.characterCount+=jsonLog[i-1].text.length;
+                pasted.texts[getDate1(jsonLog[i-1].time)]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
+            }
         }
         if(jsonLog[i].sequence==='SaveAs'){
-            var filename=jsonLog[i].filename.split('\\');
+            let filename=jsonLog[i].filename.split('\\');
             filesCreated.add(filename[filename.length-1]);
         }
         if(jsonLog[i].sequence==='Open'){
-            var filename=jsonLog[i].filename.split('\\');
+            let filename=jsonLog[i].filename.split('\\');
             filesOpened.add(filename[filename.length-1]);
         }
 
@@ -435,8 +486,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'End time':endTime.toLocaleString('en-GB'),
         'Elapsed time':elapsedTime,
         'Run count':runCount,
-        'Error count':errorCount,
-        'Paste text count':copyPasteCount,
+        'Error count':errors.total,
+        'Paste text count':pasted.total,
         'Debug count':debugCount,
         'Files created':[...filesCreated].join('<br>'),
         'Files ran':[...filesRan].join('<br>'),
@@ -462,7 +513,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableCopyPaste=`
             <div class="analysed-panel-btn-block" id='copiedTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseCopyPaste-${entryId}" role="button" aria-expanded="false" aria-controls="collapseCopyPaste-${entryId}">
-                Pasted texts (${copyPasteCount})
+                Pasted texts (${pasted.total})
                 </a>
                 <div class="collapse" id="collapseCopyPaste-${entryId}">
                     <div class="card card-body">
@@ -477,7 +528,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableErrors=`
             <div class="analysed-panel-btn-block" id='errorTexts-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors-${entryId}" role="button" aria-expanded="false" aria-controls="collapseErrors-${entryId}">
-                Errors (${errorCount})
+                Errors (${errors.total})
                 </a>
                 <div class="collapse" id="collapseErrors-${entryId}">
                     <div class="card card-body">
@@ -516,11 +567,65 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     $('#'+panelId).append(textGraphButton);
 
     displayDataTable(idGeneralInfo,generalInfo);
-    displayDataTable(idCopyPaste,copiedTexts);
-    displayDataTable(idErrors,errorTexts);
+    displayDataTable(idCopyPaste,pasted.texts);
+    displayDataTable(idErrors,errors.texts);
 
     $('#btn-open-replayer-'+entryId).click(readAnalysedFile);
     $('#btn-open-text-graph-'+entryId).click(readAnalysedFile);
+
+    let nameObject = getNameObject(file, isZipObject, path);
+    let fileAnalysisResults = {
+        'filename':nameObject.fileName,
+        'start time':startTime.toISOString(),
+        'end time':endTime.toISOString(),
+        'elapsed time':elapsedTime.replaceAll(",",""),
+        'run count':runCount,
+        'error count': errors.total,
+        'SyntaxError count':errors.syntaxError,
+        'TypeError count':errors.typeError,
+        'NameError count':errors.nameError,
+        'ValueError count':errors.valueError,
+        'AttributeError count':errors.attributeError,
+        'paste count':pasted.total,
+        'pasted character count':pasted.characterCount,
+        'debug count':debugCount,
+        'files opened count':filesOpened.size
+    }
+    if($("#input-analysis-type")[0].checked){ //multiple student analysis
+        fileAnalysisResults = Object.assign({"foldername":nameObject.folderName}, fileAnalysisResults);
+    }
+    csvValues.push(fileAnalysisResults);
+}
+
+/**
+ *
+ * @param file - file object
+ * @param path - path of current file
+ */
+function getNameObject(file, isZipObject = false, path=''){
+    let fileName = (path!=='' ? path+'/' : '') + file.name;
+    if (!isZipObject && file.webkitRelativePath!=""){
+        fileName=file.webkitRelativePath
+    }
+    fileName=fileName.replaceAll('_','-');
+
+    let firstFolderIndex= $("#input-log-type")[0].checked ? 0 : 1;
+    if(!firstFolderIndex){ //multiple student analysis
+        let firstFolder=fileName.split('/')[firstFolderIndex];  //accordion list element id
+        let firstFolderList=firstFolder.split(' ');
+
+        let firstFolderName=firstFolder;
+        if (firstFolderList.length>1){
+            firstFolderName=firstFolderList[0] + ' ' + firstFolderList[1].split('-')[0]; //list element name
+        }
+        return {'fileName':fileName,
+                'folderName':firstFolderName,
+                'folderNameId':firstFolderName.replaceAll(/ |\./ig,'-'),
+                'multipleStudentId':`student-${firstFolder.replaceAll(/ |\./ig,'-')}`}
+    }else{
+        return {'filename':fileName}
+    }
+
 }
 
 
@@ -533,9 +638,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
  * @param {*} path - path of current file
  */
 function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=''){
-    var tabList = $("#log-analysis-groups");
-    var tabPanel = $("#log-analysis-results");
-    var typeOfAnalysis=$("#input-analysis-type")[0].checked;
+    let tabList = $("#log-analysis-groups");
+    let tabPanel = $("#log-analysis-results");
+    let typeOfAnalysis=$("#input-analysis-type")[0].checked;
+    let nameObject = getNameObject(file, isZipObject, path);
 
     setActive="";
     setActivePanel="";
@@ -544,21 +650,14 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
     }else{
         fileSize=`${Math.round(file.size/1024)}KB`;
     }
-    if(path!==''){
-        path+='/';
-    }
-    fileName=path+file.name;
-    if (!isZipObject && file.webkitRelativePath!=""){
-        fileName=file.webkitRelativePath
-    }
     if(tabList[0].childElementCount===0){//first entry
         setActive="active";    
         setActivePanel="show active";
     }
-    fileName=fileName.replaceAll('_','-');
+
     var newTabListElement = `<a class="list-group-item list-group-item-action failid ${setActive}" 
-                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}" data-filename="${fileName}">
-                            <span class="badge badge-primary badge-pill">${fileSize}</span><br>${fileName}</a>`;
+                            id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}" data-filename="${nameObject.fileName}">
+                            <span class="badge badge-primary badge-pill">${fileSize}</span><br>${nameObject.fileName}</a>`;
 
     var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
 
@@ -567,76 +666,59 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
             var accordion=`<div class="accordion" id="multiple-student-list"></div>`;
             tabList.append(accordion);
         }
-        
-        if(fileName.split('/').length>1 ){
-            tabList=$('#multiple-student-list');
-            
-            var firstFolderIndex=0;
-            if(!$("#input-log-type")[0].checked){
-                firstFolderIndex=1;
+        tabList=$('#multiple-student-list');
+
+        if( $('#'+nameObject.multipleStudentId).length===0){
+            var show = '';
+            var expanded = 'false';
+            if( $('.list-group-item').length===0){ //first element expanded
+                show = 'show';
+                expanded = 'true';
             }
-            firstFolder=fileName.split('/')[firstFolderIndex];  //accordion list element id
-            var firstFolderName=firstFolder;
+            var studentListElementName=`<a id='${nameObject.folderNameId}' class='btn list-group-item list-group-item-action student-name student-name-folder' data-toggle='collapse' data-target='#${nameObject.multipleStudentId}' aria-expanded='${expanded}' aria-controls='${nameObject.multipleStudentId}' tabindex='0'>
+                                                ${nameObject.folderName}
+                                            </a>`;
+            var studentListElementPanel=`<div id="${nameObject.multipleStudentId}" class="student-folder-files collapse ${show}" aria-labelledby="${nameObject.folderName}" data-parent="#multiple-student-list">
+                                        </div>`;
 
-            firstFolderList=firstFolder.split(' ');
-            if (firstFolderList.length>1){
-                var firstFolderName=firstFolderList[0] + ' ' + firstFolderList[1].split('-')[0]; //list element name
-            }
-
-            var folderNameId=firstFolderName.replaceAll(/ |\./ig,'-');
-            var multipleStudentId=`student-${firstFolder.replaceAll(/ |\./ig,'-')}`;
-
-            if( $('#'+multipleStudentId).length===0){
-                var show = '';
-                var expanded = 'false';
-                if( $('.list-group-item').length===0){ //first element expanded
-                    show = 'show';
-                    expanded = 'true';
-                }
-                var studentListElementName=`<a id='${folderNameId}' class='btn list-group-item list-group-item-action student-name student-name-folder' data-toggle='collapse' data-target='#${multipleStudentId}' aria-expanded='${expanded}' aria-controls='${multipleStudentId}' tabindex='0'>
-                                                    ${firstFolderName}
-                                                </a>`;
-                var studentListElementPanel=`<div id="${multipleStudentId}" class="student-folder-files collapse ${show}" aria-labelledby="${firstFolderName}" data-parent="#multiple-student-list">
-                                            </div>`;
-                
-                //folder ordering
-                let students = $('.student-name-folder');
-                if (students.length==0){
-                    tabList.append(studentListElementName);
-                    tabList.append(studentListElementPanel);
-                }else{ //order
-                    for(let i=0;i<students.length;i++){
-                        if(students[i].id>folderNameId){ //current folder is alphapetically higher
-                            $(students[i]).before(studentListElementName);
-                            $(students[i]).before(studentListElementPanel);
-                            break;
-                        }
-                        if(i==students.length-1){ //last in order
-                            tabList.append(studentListElementName);
-                            tabList.append(studentListElementPanel);
-                            break;
-                        }
+            //folder ordering
+            let students = $('.student-name-folder');
+            if (students.length==0){
+                tabList.append(studentListElementName);
+                tabList.append(studentListElementPanel);
+            }else{ //order
+                for(let i=0;i<students.length;i++){
+                    if(students[i].id>nameObject.folderNameId){ //current folder is alphapetically higher
+                        $(students[i]).before(studentListElementName);
+                        $(students[i]).before(studentListElementPanel);
+                        break;
+                    }
+                    if(i==students.length-1){ //last in order
+                        tabList.append(studentListElementName);
+                        tabList.append(studentListElementPanel);
+                        break;
                     }
                 }
-                //folder ordering end
             }
-            tabList=$('#'+multipleStudentId);
-            $('#'+folderNameId).keyup(switchFolder);
+            //folder ordering end
         }
+        tabList=$('#'+nameObject.multipleStudentId);
+        $('#'+nameObject.folderNameId).keyup(switchFolder);
+
     }
 
 
     //file ordering
     let files = $('.failid');
     if (typeOfAnalysis){ //Multiple student analysis
-        files = $('#'+multipleStudentId+' .failid');
+        files = $('#'+nameObject.multipleStudentId+' .failid');
     }  
 
     if (files.length==0){
         tabList.append(newTabListElement);
     }else{ //order
         for(let i=0;i<files.length;i++){
-            if(files[i].dataset.filename>fileName){ //current folder is alphapetically higher
+            if(files[i].dataset.filename>nameObject.fileName){ //current folder is alphapetically higher
                 $(files[i]).before(newTabListElement);
                 break;
             }
@@ -786,10 +868,6 @@ function parseLogFile(jsonLog, type){
         modalJsonLog=jsonLog;
         $('#event-list-row-0').focus();
     }else if(type=="textGraph"){
-/*     console.log(replayerFiles);   
-    console.log(shellText); 
-    console.log(shellText.reduce(reducerStringArray,0));  */
-    //console.log(textGraphDataLog);  
     $("#modal-main-header-graph").empty();
     var file=`<div class="file active" onclick="handleTextGraphDataChange(this);" data-text_widget_id="AllFiles">All program files</div>`;
     $("#modal-main-header-graph").append(file);
