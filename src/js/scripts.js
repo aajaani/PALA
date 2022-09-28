@@ -10,6 +10,7 @@ var logCacheInterval=50;
 var errorAnalysing=[];
 var textGraphDataLog={};
 var csvValues=[];
+var filesParsed=0;
 
 var chart;
 
@@ -53,7 +54,7 @@ function addListeners(){
     $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
     $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('.btn-replayer-controls').click(replayerAutoPlay);
-    $('#download-csv-button').click(downloadCsv);
+    $('#download-csv-button').click(getLogfileProgramAnalytics);
 }
 
 
@@ -82,6 +83,16 @@ function downloadCsv() {
     a.click();
 }
 
+/**
+ * iterate over files and send them to be analysed
+ */
+function getLogfileProgramAnalytics(){
+    for(let i=0;i<csvValues.length;i++){
+        let entryId = csvValues[i]["entryId"];
+        let isZipObject=files[entryId].type=="zip";
+        readObject(files[entryId].file, entryId, "csvAnalytics", '', isZipObject);
+    }
+}
 
 /** destroys created chart
  * 
@@ -396,8 +407,8 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
 function handleObject(jsonLog, file, entryId, path, isZipObject, type){
     if (type==="analyse"){
         analyse( jsonLog, file, entryId, path, isZipObject);
-    }else if(["replayer", "textGraph"].includes(type)){
-        parseLogFile(jsonLog, type);
+    }else if(["replayer", "textGraph", "csvAnalytics"].includes(type)){
+        parseLogFile(jsonLog, type, entryId);
     }
 }
 
@@ -455,7 +466,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 case "ValueError": errors.valueError++; break;
                 case "AttributeError": errors.attributeError++; break;
             }
-            let date=getDate1(jsonLog[i].time)
+            let date=getDateAsLocaleString(jsonLog[i].time)
             errors.texts[date]=jsonLog[i].text;
         }
         if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Debug')){
@@ -467,7 +478,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             pasted.total++;
             if(jsonLog[i-1].text!=null){
                 pasted.characterCount+=jsonLog[i-1].text.length;
-                pasted.texts[getDate1(jsonLog[i-1].time)]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
+                pasted.texts[getDateAsLocaleString(jsonLog[i-1].time)]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
             }
         }
         if(jsonLog[i].sequence==='SaveAs'){
@@ -575,10 +586,11 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
 
     let nameObject = getNameObject(file, isZipObject, path);
     let fileAnalysisResults = {
+        'entryId':entryId,
         'filename':nameObject.fileName,
-        'start time':startTime.toISOString(),
-        'end time':endTime.toISOString(),
-        'elapsed time':elapsedTime.replaceAll(",",""),
+        'start time':toISOStringLocalUTCOffset(startTime),
+        'end time':toISOStringLocalUTCOffset(endTime),
+        'elapsed time': getDateTimeDiff(startTime,endTime),
         'run count':runCount,
         'error count': errors.total,
         'SyntaxError count':errors.syntaxError,
@@ -589,7 +601,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'paste count':pasted.total,
         'pasted character count':pasted.characterCount,
         'debug count':debugCount,
-        'files opened count':filesOpened.size
+        'files opened count':filesOpened.size,
+        'time solving till first run (for each program)':"",
+        'character count before first run (for each program)':"",
+        'character count at the end (for each program)':""
     }
     if($("#input-analysis-type")[0].checked){ //multiple student analysis
         fileAnalysisResults = Object.assign({"foldername":nameObject.folderName}, fileAnalysisResults);
@@ -766,8 +781,18 @@ function displayDataTable( tableId, data){
  * 
  * @param {Date} date 
  */
-function getDate1(date){
+function getDateAsLocaleString(date){
     return new Date(date).toLocaleString('en-GB');
+}
+
+function toISOStringLocalUTCOffset( date) {
+    date.setTime(date.getTime() - date.getTimezoneOffset() * 60 * 1000)
+    return date.toISOString().replace("Z","");
+}
+
+function getDateTimeDiff(dateStart, DateEnd){
+    let timeDiff=new Date(DateEnd-dateStart);
+    return (timeDiff.getDate()-1).toString()+'T'+timeDiff.toISOString().split('T')[1].replace("Z","");
 }
 
 
@@ -776,12 +801,12 @@ function getDate1(date){
  */
 function readAnalysedFile(){
 
-    var entryId=$(this)[0].attributes['data-entry-id'].value
+    let entryId=$(this)[0].attributes['data-entry-id'].value
 
     if (files[entryId]==null){
         alert('File not found in input space.')
     }
-    var isZipObject=files[entryId].type=="zip";
+    let isZipObject=files[entryId].type=="zip";
     if($(this)[0].attributes['data-target'].value=='#replayerModal'){
         readObject(files[entryId].file, '', "replayer", '', isZipObject);
     }else if($(this)[0].attributes['data-target'].value=='#textGraphModal'){
@@ -789,13 +814,15 @@ function readAnalysedFile(){
     }
 }
 
+const reducerStringArray = (accumulator, currentValue) => accumulator + currentValue.replaceAll("\\","").length;
+const reducerFiles= (accumulator, currentValue) => accumulator + currentValue.codeViewText.reduce(reducerStringArray,0);
 
 /** Parses jsonLog and caches parced log content to jsonLog. 
  * 
  * @param {*} jsonLog - log content
  * @param {*} type - describes what to do with read object
  */
-function parseLogFile(jsonLog, type){
+function parseLogFile(jsonLog, type, entryId){
     const eventListGroup=$('#modal-sidebar-event-list');
     if(type=="replayer"){
         eventListGroup.empty();
@@ -808,16 +835,13 @@ function parseLogFile(jsonLog, type){
         }
     }
 
-    var eventList;
-    var split='';
+    let eventList;
+    let split='';
 
-    var replayerFiles=[];
-    var shellText=[];
+    let replayerFiles=[];
+    let shellText=[];
 
-    var data=[]
-
-    const reducerStringArray = (accumulator, currentValue) => accumulator + currentValue.length;
-    const reducerFiles= (accumulator, currentValue) => accumulator + currentValue.codeViewText.reduce(reducerStringArray,0);
+    let data=[]
 
     for(var i=0;i<jsonLog.length;i++){
 
@@ -859,7 +883,31 @@ function parseLogFile(jsonLog, type){
                         textGraphDataLog[textWidgetId].push({"x": jsonLog[i].time,"y":replayerFiles[indexOfFile].codeViewText.reduce(reducerStringArray,0)});
                     }
                 }
-                //data.push(textGraphDataObj); //.split('T').join(' ')  jsonLog[i].time
+            }
+        }else if(type=="csvAnalytics"){
+            if(i==jsonLog.length-1){
+                let index = getIndexOfArrayObjectAcctoProperty(csvValues,"entryId", entryId);
+                let timeDiffTillFirstRun=[]; //time solving till first run (for each program)
+                let charCountAtFirstRun=[]; //character count before first run (for each program)
+                let charCount=[]; //character count at the end (for each program)
+                for(const file of replayerFiles){
+                    let count = file.codeViewText.reduce(reducerStringArray,0)
+                    if(count!=0 && file.hasRun){
+                        charCount.push(count);
+                        charCountAtFirstRun.push(file["charCountAtFirstRun"])
+                        let timeDiff = new Date(file["timeAtStartProgramRun"] - file["timeAtStartProgramOpen"]);
+                        timeDiffTillFirstRun.push(getDateTimeDiff(file["timeAtStartProgramOpen"], file["timeAtStartProgramRun"]));
+                    }
+                }
+                csvValues[index]["time solving till first run (for each program)"]=timeDiffTillFirstRun.join(";");
+                csvValues[index]["character count before first run (for each program)"]=charCountAtFirstRun.join(";");
+                csvValues[index]["character count at the end (for each program)"]=charCount.join(";");
+                delete csvValues[index]["entryId"];
+                filesParsed++;
+                if(filesParsed==csvValues.length){
+                    filesParsed=0;
+                    downloadCsv();
+                }
             }
         }
     }
@@ -868,16 +916,16 @@ function parseLogFile(jsonLog, type){
         modalJsonLog=jsonLog;
         $('#event-list-row-0').focus();
     }else if(type=="textGraph"){
-    $("#modal-main-header-graph").empty();
-    var file=`<div class="file active" onclick="handleTextGraphDataChange(this);" data-text_widget_id="AllFiles">All program files</div>`;
-    $("#modal-main-header-graph").append(file);
-    file=`<div class="file" onclick="handleTextGraphDataChange(this);" data-text_widget_id="ShellText">Shell</div>`;
-    $("#modal-main-header-graph").append(file);
-    for(var i=0;i<replayerFiles.length;i++){
-        file=`<div class="file " onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+        $("#modal-main-header-graph").empty();
+        let file=`<div class="file active" onclick="handleTextGraphDataChange(this);" data-text_widget_id="AllFiles">All program files</div>`;
         $("#modal-main-header-graph").append(file);
-    }
-    chart = getNewChart('AllFiles'); 
+        file=`<div class="file" onclick="handleTextGraphDataChange(this);" data-text_widget_id="ShellText">Shell</div>`;
+        $("#modal-main-header-graph").append(file);
+        for(var i=0;i<replayerFiles.length;i++){
+            file=`<div class="file " onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+            $("#modal-main-header-graph").append(file);
+        }
+        chart = getNewChart('AllFiles');
     }
 }
 
@@ -974,7 +1022,7 @@ function getNewChart(index){
  * @returns edited replayerFiles, shellText
  */
 function addLogEvent(replayerFiles, shellText, logEvent){
-    var activeIndex=getActiveIndex(replayerFiles);
+    let activeIndex=getActiveIndex(replayerFiles);
     let indexOfFile=-2;
     if (logEvent.text_widget_id!=null && logEvent.sequence!='EditorTextCreated' && logEvent.text_widget_class!='ShellText'){
         indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==logEvent.text_widget_id);
@@ -985,18 +1033,25 @@ function addLogEvent(replayerFiles, shellText, logEvent){
             replayerFiles[activeIndex].active=false;
         }
 
-        var filename="";
+        let filename="";
         if(logEvent.sequence=='NewFile' || (indexOfFile==-1 && logEvent.sequence!='Open')){
             filename="<untitled>";
         }else if(logEvent.sequence=='Open'){
-            var filenameList=logEvent.filename.split('\\');
+            let filenameList=logEvent.filename.split('\\');
             filename=filenameList[filenameList.length-1];
         }
-        replayerFiles.push({"active":true, "text_widget_id":logEvent.text_widget_id, "filename":filename, "codeViewText":[]});
+        replayerFiles.push({"active":true
+            , "text_widget_id":logEvent.text_widget_id
+            , "filename":filename
+            , "codeViewText":[]
+            , "hasRun": false
+            , "charCountAtFirstRun":0
+            , "timeAtStartProgramOpen" : new Date(logEvent.time)
+            , "timeAtStartProgramRun" : null});
 
     }else if (logEvent.sequence=='SaveAs'){
-        var filenameList=logEvent.filename.split('\\');
-        var filename=filenameList[filenameList.length-1];
+        let filenameList=logEvent.filename.split('\\');
+        let filename=filenameList[filenameList.length-1];
 
         if(activeIndex!=-1){
             replayerFiles[activeIndex].filename=filename;
@@ -1011,7 +1066,7 @@ function addLogEvent(replayerFiles, shellText, logEvent){
                 console.log("Error replayer no active files.\n"+replayerFiles);
             }
         }else if(logEvent.text_widget_class=='ShellText'){
-            var shellText=addChangesToText(shellText,logEvent);
+            shellText=addChangesToText(shellText,logEvent);
         }
     }else if(logEvent.sequence=='<Button-1>'
         && logEvent.text_widget_class!=null
@@ -1019,13 +1074,19 @@ function addLogEvent(replayerFiles, shellText, logEvent){
         if(activeIndex!=-1){
             replayerFiles[activeIndex].active=false;
         }
-        for(var i=0; i<replayerFiles.length;i++){
+        for(let i=0; i<replayerFiles.length;i++){
             if(replayerFiles[i].text_widget_id==logEvent.text_widget_id){
                 replayerFiles[i].active=true;
                 break;    
             }
         }
-
+    }else if(logEvent.sequence==='ShellCommand'
+        && logEvent.command_text.slice(0,4)==='%Run'
+        && !logEvent.command_text.includes('$EDITOR_CONTENT')
+        && !replayerFiles[activeIndex]["hasRun"]){ //file has run first time
+        replayerFiles[activeIndex]["hasRun"]=true;
+        replayerFiles[activeIndex]["timeAtStartProgramRun"]=new Date(logEvent.time);
+        replayerFiles[activeIndex]["charCountAtFirstRun"]=replayerFiles[activeIndex].codeViewText.reduce(reducerStringArray,0);
     }
     return [replayerFiles, shellText];
 }
@@ -1037,8 +1098,22 @@ function addLogEvent(replayerFiles, shellText, logEvent){
  * @returns objectlist index of object with active property set to true.
  */
 function getActiveIndex( objectList){
-    for(var i=0; i<objectList.length;i++){
+    for(let i=0; i<objectList.length;i++){
         if(objectList[i].active){
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ *
+ * @param {*} objectList list of objects containing an active property.
+ * @returns objectlist index of object with propertyName property having same value as propertyValue
+ */
+function getIndexOfArrayObjectAcctoProperty( objectList, propertyName, propertyValue){
+    for(let i=0; i<objectList.length;i++){
+        if(objectList[i][propertyName]==propertyValue){
             return i;
         }
     }
