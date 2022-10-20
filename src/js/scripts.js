@@ -452,10 +452,11 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     let filesOpened=new Set();
     for(let i=0;i<jsonLog.length;i++){
         if(jsonLog[i].sequence==='ShellCommand'
-            && jsonLog[i].command_text.slice(0,4)==='%Run'
-            && !jsonLog[i].command_text.includes('$EDITOR_CONTENT')){
+            && jsonLog[i].command_text.slice(0,4)==='%Run'){
             runCount++;
-            filesRan.add(jsonLog[i].command_text.slice(5).replaceAll('\'',''));
+            if(!jsonLog[i].command_text.includes('$EDITOR_CONTENT')){
+                filesRan.add(jsonLog[i].command_text.slice(5).replaceAll('\'',''));
+            }
         }
         if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Error') && jsonLog[i].text_widget_class==="ShellText"){
             errors.total++;
@@ -1082,7 +1083,6 @@ function addLogEvent(replayerFiles, shellText, logEvent){
         }
     }else if(logEvent.sequence==='ShellCommand'
         && logEvent.command_text.slice(0,4)==='%Run'
-        && !logEvent.command_text.includes('$EDITOR_CONTENT')
         && !replayerFiles[activeIndex]["hasRun"]){ //file has run first time
         replayerFiles[activeIndex]["hasRun"]=true;
         replayerFiles[activeIndex]["timeAtStartProgramRun"]=new Date(logEvent.time);
