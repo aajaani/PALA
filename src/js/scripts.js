@@ -275,6 +275,7 @@ function fileSubmit(){
     clearAnalysisResults();
     toggleChooseLogs();
     showSidebar();
+    $("#analysis-result-actions").removeClass("d-none");
     files=[];
     errorAnalysing=[];
     csvValues=[];

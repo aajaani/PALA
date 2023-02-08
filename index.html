@@ -98,24 +98,36 @@
                 <h4 id="log-input-folder-msg" class="log-input-area-msg"><b>Drag</b> or <b>Click</b> inside the area to choose a folder containing log files or zip-files to be analysed.</h4>
               </div>
             </div>
-            <div class="button-input-container" id="log-button-div">
-              <button class="btn btn-dark btn-lg" type="button" id="log-button" >
-                <i class="fa fa-bar-chart"></i>
-                Analyse
-              </button>
+            <div class="row justify-content-md-center">
+              <div class="col-auto" id="log-button-div">
+                <button class="btn btn-dark btn-lg" type="button" id="log-button" >
+                  <i class="fa-solid fa-chart-column"></i>
+                  Analyse
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <div id="log-analysis">
-        <div class="row">
-          <div class="button-input-container container" id="download-csv-button-div">
-            <button class="btn btn-dark btn-sm" type="button" id="download-csv-button" >
-              <i class="fa fa-download"></i>
-              Download analysis results
-            </button>
+        <div class="container">
+          <div class="row justify-content-md-center d-none" id="analysis-result-actions">
+            <div class="col-auto m-1" id="download-csv-button-div">
+              <button class="btn btn-dark btn-sm" type="button" id="download-csv-button" >
+                <i class="fa fa-download"></i>
+                Download analysis results
+              </button>
+            </div>
+            <div class="col-auto m-1 mb-3" id="compare-button-div">
+              <button class="btn btn-dark btn-sm" type="button" id="compare-button" >
+                <i class="fa-solid fa-code-compare"></i>
+                Compare analysis results
+              </button>
+            </div>
           </div>
+        </div>
+        <div class="row">
           <div id='log-analysis-results' class="tab-content container" >
           </div>
         </div>
