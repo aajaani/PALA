@@ -398,10 +398,9 @@ pre code{
 .alert{
     z-index: 100000;
     position: fixed;
-    width: 100%;
     opacity: 95%;
-    width: 50%;
-    right: 0;
+    top: 1%;
+    border-radius: 5px;
 }
 
 .bold{

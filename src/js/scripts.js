@@ -295,12 +295,12 @@ function fileSubmit(){
     setTimeout(() => {  
          if(errorAnalysing.length>0){
             var tableErrors=`
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <div id='alert-expand-control' class="alert alert-warning alert-dismissible fade show" 
+            data-toggle="collapse" href="#alert-expand-body" aria-expanded="false" aria-controls="alert-expand-body" role="alert">
+                <strong >Errors analysing files</strong>
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
-                <h4 class="alert-heading">Error analysing files</h4>
-                <a id='alert-expand-control' class='bold' data-toggle="collapse" href="#alert-expand-body" aria-expanded="false" aria-controls="alert-expand-body">Click here</a> to see list of files which couldn't be analysed.
                 <div id="alert-expand-body" class="collapse">
                     <hr>
                     <ul id="alert-error-list" class="scroll-auto">
