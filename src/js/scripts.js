@@ -21,10 +21,7 @@ $(function() {
 
     $('[data-toggle="popover"]').popover({
         trigger: 'focus'
-      }); 
-
-    //$('#replayerModal').modal(); //delete
-    //$('#textGraphModal').modal(); //delete 
+      });
 
     Split({
         columnGutters: [{

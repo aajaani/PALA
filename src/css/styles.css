@@ -13,9 +13,6 @@
 /* Bootstrap Toggle v2.2.2 corrections for Bootsrtap 4*/
 
 /* SIDEBAR */
-/*
-    DEMO STYLE
-*/
 
 body {
     font-family: 'Poppins', sans-serif;
@@ -97,13 +94,6 @@ body {
     MEDIAQUERIES
 ----------------------------------------------------- */
 
-/* 
-.mCSB_dragger_bar,.mCSB_scrollTools .mCSB_dragger{
-    z-index: 2000 !important;
-}
-.mCSB_dragger_bar{
-    background-color: #61626b !important;
-} */
 /* SIDEBAR --end */
 
 .list-group-item{
@@ -185,7 +175,7 @@ pre{
 }
 
 .modal-sb-space .modal-dialog{
-    margin-left: 275px; /* sidebar width - 250px */
+    margin-left: 275px;
 }
 
 .modal-content{
@@ -208,20 +198,8 @@ pre{
     margin-right: 10px;
     height: 30px;
     overflow: auto;
-/*     white-space: nowrap; */
-
 } 
 
-/* .modal-sidebar{
-    width: 250px;
-    padding: 0px !important;
-    padding-right:10px;
-} */
-
-/* .modal-main-content{
-    padding-top: 0px !important;
-    width: calc(100% - 200px);
-} */
 
 
 
@@ -251,9 +229,6 @@ pre{
     white-space: nowrap;
 }
 
-/* .control-panel{
-    margin-left: 10px;
-} */
 
 .btn-replayer-controls{
     font-size: 40px;
@@ -276,10 +251,6 @@ pre{
 
 .grid{
     display: grid;
-
-    /*added inline style*/
- /*    grid-template-columns: 1fr 10px 2fr; */
-/*     grid-template-rows: 2fr 10px 1fr; */
 }
 
 .modal-main-content{
