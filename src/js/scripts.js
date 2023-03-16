@@ -11,6 +11,8 @@ var errorAnalysing=[];
 var textGraphDataLog={};
 var csvValues=[];
 var filesParsed=0;
+var jsonLogAllFiles={};
+var similarityAnalysisResults={}
 
 var chart;
 
@@ -52,6 +54,7 @@ function addListeners(){
     $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('.btn-replayer-controls').click(replayerAutoPlay);
     $('#download-csv-button').click(getLogfileProgramAnalytics);
+    $('#compare-button').click(getSimilarityAnalysisData);
 }
 
 
@@ -276,6 +279,8 @@ function fileSubmit(){
     files=[];
     errorAnalysing=[];
     csvValues=[];
+    $('#alert-expand-control').alert('close');
+    errorAnalysing=[];
 
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
@@ -347,6 +352,12 @@ function parseZipFile(entryId, zipFile, path=''){
 }
 
 
+function storeFileInfo(entryId, file, type) {
+    if(!(entryId in files)){
+        files[entryId] = {"file": file, "type": type, "entryId": entryId};
+    }
+}
+
 /**
  * @param {*} file - file object
  * @param {String} entryId - id of file analysed
@@ -356,7 +367,7 @@ function parseZipFile(entryId, zipFile, path=''){
  */
 function readObject(file, entryId, type="analyse", path='', isZipObject = false){
     if (isZipObject){
-        files[entryId]={"file":file, "type": "zip"};
+        storeFileInfo(entryId, file, "zip");
         file.async("string")
         .then(function success(text) {
             try {
@@ -371,7 +382,7 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
         });
     }else{  //is not zip object
         if(file.type==='text/plain'){
-            files[entryId]={"file":file, "type": "text"};
+            storeFileInfo(entryId, file, "text");
             const reader = new FileReader();
             reader.readAsText(file);
             reader.addEventListener('load', (event) => {
@@ -405,7 +416,8 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
 function handleObject(jsonLog, file, entryId, path, isZipObject, type){
     if (type==="analyse"){
         analyse( jsonLog, file, entryId, path, isZipObject);
-    }else if(["replayer", "textGraph", "csvAnalytics"].includes(type)){
+    }else if(["replayer", "textGraph", "csvAnalytics","similarityAnalysis"].includes(type)){
+        jsonLog
         parseLogFile(jsonLog, type, entryId);
     }
 }
@@ -607,6 +619,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     }
     if($("#input-analysis-type")[0].checked){ //multiple student analysis
         fileAnalysisResults = Object.assign({"foldername":nameObject.folderName}, fileAnalysisResults);
+        files[entryId]['folderName']=nameObject.folderName;
     }
     csvValues.push(fileAnalysisResults);
 }
@@ -816,6 +829,27 @@ function readAnalysedFile(){
 const reducerStringArray = (accumulator, currentValue) => accumulator + currentValue.replaceAll("\\","").length;
 const reducerFiles= (accumulator, currentValue) => accumulator + currentValue.codeViewText.reduce(reducerStringArray,0);
 
+function addedTextAnalytics( logObject, jsonLog, i, replayerFiles, shellText) {
+    if (['TextDelete','TextInsert'].includes(jsonLog[i].sequence) && ((new Date(jsonLog[i].time)) - (new Date(jsonLog[i - 1].time))) > 1/*ms*/) {
+        logObject['AllFiles'].push({"x": jsonLog[i].time, "y": replayerFiles.reduce(reducerFiles, 0)});
+        if (jsonLog[i].text_widget_class == 'ShellText') {
+            logObject['ShellText'].push({"x": jsonLog[i].time, "y": shellText.reduce(reducerStringArray, 0)});
+        } else {
+            let textWidgetId = jsonLog[i].text_widget_id;
+            if (!logObject.hasOwnProperty(textWidgetId)) {
+                logObject[textWidgetId] = [];
+            }
+            let indexOfFile = replayerFiles.findIndex(obj => obj.text_widget_id == textWidgetId);
+            if (indexOfFile != -1) {
+                logObject[textWidgetId].push({
+                    "x": jsonLog[i].time,
+                    "y": replayerFiles[indexOfFile].codeViewText.reduce(reducerStringArray, 0)
+                });
+            }
+        }
+    }
+}
+
 /** Parses jsonLog and caches parced log content to jsonLog. 
  * 
  * @param {*} jsonLog - log content
@@ -825,14 +859,11 @@ function parseLogFile(jsonLog, type, entryId){
     const eventListGroup=$('#modal-sidebar-event-list');
     if(type=="replayer"){
         eventListGroup.empty();
-    }else if(type=="textGraph"){
-        if (! textGraphDataLog.hasOwnProperty('AllFiles')){
-            textGraphDataLog['AllFiles']=[];
-        }
-        if (! textGraphDataLog.hasOwnProperty('ShellText')){
-            textGraphDataLog['ShellText']=[];
-        }
     }
+
+    let pastedTexts=[];
+    textGraphDataLog['AllFiles']=[];
+    textGraphDataLog['ShellText']=[];
 
     let eventList;
     let split='';
@@ -868,21 +899,7 @@ function parseLogFile(jsonLog, type, entryId){
 
             eventListGroup.append(eventList);
         }else if(type=="textGraph"){
-            if ((jsonLog[i].sequence=='TextInsert' || jsonLog[i].sequence=='TextDelete') && ((new Date(jsonLog[i].time))-(new Date(jsonLog[i-1].time)))>1/*ms*/){
-                textGraphDataLog['AllFiles'].push({"x": jsonLog[i].time,"y":replayerFiles.reduce(reducerFiles,0)});
-                if(jsonLog[i].text_widget_class=='ShellText'){
-                    textGraphDataLog['ShellText'].push({"x": jsonLog[i].time,"y":shellText.reduce(reducerStringArray,0)});
-                }else{
-                    let textWidgetId=jsonLog[i].text_widget_id;
-                    if (! textGraphDataLog.hasOwnProperty(textWidgetId)){
-                        textGraphDataLog[textWidgetId]=[];
-                    }
-                    let indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==textWidgetId);
-                    if(indexOfFile!=-1){
-                        textGraphDataLog[textWidgetId].push({"x": jsonLog[i].time,"y":replayerFiles[indexOfFile].codeViewText.reduce(reducerStringArray,0)});
-                    }
-                }
-            }
+            addedTextAnalytics( textGraphDataLog, jsonLog, i, replayerFiles, shellText);
         }else if(type=="csvAnalytics"){
             if(i==jsonLog.length-1){
                 let index = getIndexOfArrayObjectAcctoProperty(csvValues,"entryId", entryId);
@@ -908,6 +925,22 @@ function parseLogFile(jsonLog, type, entryId){
                     downloadCsv();
                 }
             }
+        }else if(type=="similarityAnalysis"){
+            if(jsonLog[i].sequence==='<<Paste>>' &&
+                jsonLog[i].text_widget_class!=null &&
+                jsonLog[i].text_widget_class.includes("CodeViewText")){
+                if(jsonLog[i-1].text!=null){
+                    pastedTexts.push({'time': jsonLog[i-1].time, 'text': jsonLog[i-1].text});
+                }
+            }
+            if(i==jsonLog.length-1){
+                jsonLog["analysation_result"]={"replayerFiles":JSON.parse(JSON.stringify(replayerFiles)),"shellText":JSON.parse(JSON.stringify(shellText))};
+                filesParsed++;
+                if(filesParsed==csvValues.length){
+                    filesParsed=0;
+                    similarityAnalysis();
+                }
+            }
         }
     }
     if(type=="replayer"){
@@ -925,6 +958,11 @@ function parseLogFile(jsonLog, type, entryId){
             $("#modal-main-header-graph").append(file);
         }
         chart = getNewChart('AllFiles');
+    }else if(type=="similarityAnalysis"){
+        jsonLogAllFiles[entryId]={'jsonLog':jsonLog
+                                , 'entryId':entryId
+                                , 'folderName': files[entryId].folderName
+                                , 'pastedTexts': pastedTexts};
     }
 }
 
@@ -1309,4 +1347,32 @@ function resetReplayerPlayBtn(){
     if($('#replayer-play').hasClass('d-none')){
         $('.btn-replayer-controls').toggleClass('d-none');
     }
+}
+
+function getSimilarityAnalysisData(){
+    let filesArr=Object.values(files);
+    let duplicateFiles=[];
+    similarityAnalysisResults['duplicateFiles']={}
+    for (let file in files ){
+        //Checking for duplicate files using file checksum
+        duplicateFiles = filesArr.filter(i=>i.file._data.crc32==files[file].file._data.crc32
+                                                                && (i.folderName==null || i.folderName!=files[file].folderName));
+        if(duplicateFiles.length>1 && !(files[file].file._data.crc32 in similarityAnalysisResults['duplicateFiles'])){
+            similarityAnalysisResults['duplicateFiles'][files[file].file._data.crc32]=duplicateFiles;
+        }
+        //analysing file contents
+        readObject(files[file].file, file, "similarityAnalysis", '', files[file].type=="zip");
+    }
+}
+
+function similarityAnalysis(){
+    console.log(similarityAnalysisResults);
+    console.log(jsonLogAllFiles);
+    //student has submitted total less than 100kb of data
+    //student worked in total way too little
+    //copied code analysis
+
+    //timeline analysis
+    //length of code analysis
+    //python-ast library python code analysis
 }
