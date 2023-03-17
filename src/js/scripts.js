@@ -11,7 +11,7 @@ var errorAnalysing=[];
 var textGraphDataLog={};
 var csvValues=[];
 var filesParsed=0;
-var jsonLogAllFiles={};
+var similarityDataAllFiles={};
 var similarityAnalysisResults={}
 
 var chart;
@@ -933,14 +933,6 @@ function parseLogFile(jsonLog, type, entryId){
                     pastedTexts.push({'time': jsonLog[i-1].time, 'text': jsonLog[i-1].text});
                 }
             }
-            if(i==jsonLog.length-1){
-                jsonLog["analysation_result"]={"replayerFiles":JSON.parse(JSON.stringify(replayerFiles)),"shellText":JSON.parse(JSON.stringify(shellText))};
-                filesParsed++;
-                if(filesParsed==csvValues.length){
-                    filesParsed=0;
-                    similarityAnalysis();
-                }
-            }
         }
     }
     if(type=="replayer"){
@@ -959,10 +951,17 @@ function parseLogFile(jsonLog, type, entryId){
         }
         chart = getNewChart('AllFiles');
     }else if(type=="similarityAnalysis"){
-        jsonLogAllFiles[entryId]={'jsonLog':jsonLog
-                                , 'entryId':entryId
+        similarityDataAllFiles[entryId]={'jsonLog': jsonLog
+                                , 'entryId': entryId
                                 , 'folderName': files[entryId].folderName
-                                , 'pastedTexts': pastedTexts};
+                                , 'pastedTexts': pastedTexts
+                                , "replayerFiles": JSON.parse(JSON.stringify(replayerFiles))
+                                , "shellText": JSON.parse(JSON.stringify(shellText))};
+        filesParsed++;
+        if(filesParsed==csvValues.length){
+            filesParsed=0;
+            similarityAnalysis();
+        }
     }
 }
 
@@ -1366,13 +1365,54 @@ function getSimilarityAnalysisData(){
 }
 
 function similarityAnalysis(){
+    let similarityDataArray = Object.values(similarityDataAllFiles);
     console.log(similarityAnalysisResults);
-    console.log(jsonLogAllFiles);
+    console.log(similarityDataAllFiles);
     //student has submitted total less than 100kb of data
     //student worked in total way too little
     //copied code analysis
-
     //timeline analysis
     //length of code analysis
     //python-ast library python code analysis
+
+
+    //get pasted text grouped by text length
+    const pastedTextsGrouped = similarityDataArray.reduce((acc, log) => {
+        let textLengthKey = '';
+        log.pastedTexts.filter(pastedText => pastedText.text.length>50) //no copied texts with less than 50 chars
+            .forEach(pastedText => {
+                textLengthKey = pastedText.text.length.toString();
+                if(!(textLengthKey in acc)){
+                    acc[textLengthKey]= {};
+                    acc[textLengthKey][pastedText.text]=[{'entryId': log.entryId, 'folderName': log.folderName}];
+                }else{
+                    if(!(acc[textLengthKey].hasOwnProperty(pastedText.text))){
+                        acc[textLengthKey][pastedText.text]=[{'entryId': log.entryId, 'folderName': log.folderName}];
+                    }else if(!(acc[textLengthKey][pastedText.text].find(i => i.entryId==log.entryId ||                                //no identical copies from same file
+                                                                                                (i.folderName!=null && i.folderName==log.folderName)))    //no identical copies from same student
+                    ){
+                        acc[textLengthKey][pastedText.text].push({'entryId': log.entryId, 'folderName': log.folderName});
+                    }
+                }
+            })
+        return acc;
+    }, {});
+
+    similarityAnalysisResults['pastedTexts'] = Object.fromEntries(
+        Object.entries(pastedTextsGrouped).map(([key, value]) => [key,
+            Object.fromEntries(
+                Object.entries(value).filter(([innerKey, innerValue]) => innerValue.length > 1) //remove pasted texts which didn't have matches
+            )
+        ]).filter(([key, value]) => Object.keys(value).length > 0) //remove pasted text length which didn't have matches
+    );
+
+    let folderNameIsNull = false;
+    for(let i = 0; i < similarityDataArray.length; i++) {
+        folderNameIsNull = similarityDataArray[i].folderName == null;
+        for (let j = i + 1; j < similarityDataArray.length; j++) {
+            if(folderNameIsNull || similarityDataArray[i].folderName!=similarityDataArray[j].folderName){
+
+            }
+        }
+    }
 }
