@@ -159,7 +159,7 @@
           <div class="modal-main grid" style="grid-template-columns: 1fr 10px 4fr;">
             <div class="modal-sidebar">
               <div class="modal-expand">
-                <i id="replayer-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandReplayer(this);"></i>
+                <i id="replayer-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandModal(this);"></i>
               </div>
               <div class='row justify-content-center'>
                 <label id="replayer-speed-range-label" for="replayer-speed-range">Play speed <b><span id="replayer-speed">1</span>x</b></label>
@@ -189,7 +189,7 @@
                   <pre><code id="modal-program-text" class="python"></code></pre>
                 </div>
                 <div class="horizontal-gutter">
-                  <div class="file-shell active">Shell</div>
+                  <div class="file-shell active btn btn-outline-dark">Shell</div>
                 </div>
                 <div id="modal-main-shell" class="modal-bottom scroll-auto">
                   <pre><code id="modal-shell-text" class="python-repl"></code></pre>
@@ -212,21 +212,104 @@
             <span aria-hidden="true">&times;</span>
           </button>
           <div class="modal-expand">
-            <i id="graph-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandReplayer(this);"></i>
+            <i id="graph-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandModal(this);"></i>
           </div>
           
           <div class="modal-main-content">
             <div id='modal-main-header-graph' class="modal-main-header">
             </div>
             <canvas id="text-length-graph"></canvas> 
-          </div>  
-
-
-
+          </div>
         </div>
       </div>
     </div>
-  </div> 
+  </div>
+
+
+  <!-- similarity analysis results Modal -->
+  <div class="modal modal-sb-space fade" id="similarity-analysis-modal" tabindex="-1" role="dialog" aria-labelledby="similarity-analysis-modal" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-body">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <div class="modal-expand">
+            <i id="similarity-expand-btn" class="fa fa-expand expand" aria-hidden="true" onclick="expandModal(this);"></i>
+          </div>
+
+          <div class="container-fluid">
+            <div class="container">
+              <h2 class="text-center">Cheating Detection</h2>
+            </div>
+            <div id='modal-main-header-similarity' class="nav nav-pills justify-content-center" role="tablist">
+              <a id="duplicate-files-tab" class="nav-item nav-link" data-toggle="tab" href="#duplicate-files-pane" role="tab">
+                Duplicate files<span class="badge badge-pill badge-warning ml-1">0</span>
+              </a>
+              <a id="pasted-texts-tab" class="nav-item nav-link" data-toggle="tab" href="#pasted-texts-pane" role="tab">
+                Pasted texts<span class="badge badge-pill badge-warning ml-1">0</span>
+              </a>
+              <a id="student-todo-tab" class="nav-item nav-link" data-toggle="tab" href="#student-todo-pane" role="tab">
+                Student based TODO<span class="badge badge-pill badge-warning ml-1">0</span>
+              </a>
+              <a id="source-code-tab" class="nav-item nav-link" data-toggle="tab" href="#source-code-pane" role="tab">
+                Source code comparisons TODO<span class="badge badge-pill badge-warning ml-1">0</span>
+              </a>
+              <a id="timeline-tab" class="nav-item nav-link" data-toggle="tab" href="#timeline-pane" role="tab">
+                Timeline comparisons TODO<span class="badge badge-pill badge-warning ml-1">0</span>
+              </a>
+            </div>
+            <hr>
+            <div class="tab-content">
+              <div id="similarity-summary-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="similarity-summary-tab">
+                <div class="text-center">
+                  <h3 class="text-success">No definitive findings</h3>
+                </div>
+              </div>
+              <!-- duplicate-files -->
+              <div id="duplicate-files-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="duplicate-files-tab">
+                <div class="row event-list">
+                  <div class="col-md-3 modal-sidebar scroll-auto">
+                    <div class="list-group" role="tablist">
+                    </div>
+                  </div>
+                  <div class="col-md-9 modal-main-content scroll-auto">
+                    <div class="tab-content">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Pasted texts -->
+              <div id="pasted-texts-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="pasted-texts-tab">
+                <div class="row event-list">
+                  <div class="col-md-3 modal-sidebar scroll-auto">
+                    <div class="list-group" role="tablist">
+                    </div>
+                  </div>
+                  <div class="col-md-9 modal-main-content scroll-auto">
+                    <div class="tab-content">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Student based -->
+              <div id="student-todo-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="student-todo-tab">
+                Student based TODO
+              </div>
+              <!-- Source code comparisons -->
+              <div id="source-code-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="source-code-tab">
+                Source code comparisons TODO
+              </div>
+              <!-- Timeline comparisons -->
+              <div id="timeline-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="timeline-tab">
+                Timeline comparisons TODO
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   
 
 

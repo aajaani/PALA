@@ -35,6 +35,8 @@ $(function() {
         element: document.querySelector('.horizontal-gutter'),
       }]
     });
+
+    $('#similarity-analysis-modal').modal('show');
 });
  
 
@@ -941,12 +943,12 @@ function parseLogFile(jsonLog, type, entryId){
         $('#event-list-row-0').focus();
     }else if(type=="textGraph"){
         $("#modal-main-header-graph").empty();
-        let file=`<div class="file active" onclick="handleTextGraphDataChange(this);" data-text_widget_id="AllFiles">All program files</div>`;
+        let file=`<div class="file active btn btn-outline-dark" onclick="handleTextGraphDataChange(this);" data-text_widget_id="AllFiles">All program files</div>`;
         $("#modal-main-header-graph").append(file);
-        file=`<div class="file" onclick="handleTextGraphDataChange(this);" data-text_widget_id="ShellText">Shell</div>`;
+        file=`<div class="file btn btn-outline-dark" onclick="handleTextGraphDataChange(this);" data-text_widget_id="ShellText">Shell</div>`;
         $("#modal-main-header-graph").append(file);
         for(var i=0;i<replayerFiles.length;i++){
-            file=`<div class="file " onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+            file=`<div class="file btn btn-outline-dark" onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
             $("#modal-main-header-graph").append(file);
         }
         chart = getNewChart('AllFiles');
@@ -1288,7 +1290,7 @@ function handleEventListFocus(value){
 
     $("#modal-main-header-replayer").empty()
     for(var i=0;i<replayerFiles.length;i++){
-        var file=`<div class="file ${replayerFiles[i].active ? 'active' : ''}" onclick="handleEventListFocus(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+        var file=`<div class="file btn btn-outline-dark ${replayerFiles[i].active ? 'active' : ''}" onclick="handleEventListFocus(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
         $("#modal-main-header-replayer").append(file);
     }
 
@@ -1310,11 +1312,17 @@ function updateReplayerSpeed(val) {
     $('#replayer-speed').text(val); 
   }
 
-function expandReplayer(val) {
-    if($(val)[0].id=='replayer-expand-btn'){
-        $('#replayerModal').toggleClass('modal-sb-space');
-    }else if($(val)[0].id=='graph-expand-btn'){
-        $('#textGraphModal').toggleClass('modal-sb-space');
+function expandModal(val) {
+    switch ($(val)[0].id) {
+        case 'replayer-expand-btn':
+            $('#replayerModal').toggleClass('modal-sb-space');
+            break;
+        case 'graph-expand-btn':
+            $('#textGraphModal').toggleClass('modal-sb-space');
+            break;
+        case 'similarity-expand-btn':
+            $('#similarity-analysis-modal').toggleClass('modal-sb-space');
+            break;
     }
   }
 
@@ -1356,17 +1364,17 @@ function getSimilarityAnalysisData(){
         //Checking for duplicate files using file checksum
         duplicateFiles = filesArr.filter(i=>i.file._data.crc32==files[file].file._data.crc32
                                                                 && (i.folderName==null || i.folderName!=files[file].folderName));
-        if(duplicateFiles.length>1 && !(files[file].file._data.crc32 in similarityAnalysisResults['duplicateFiles'])){
+        if(duplicateFiles.length>1 && !(similarityAnalysisResults['duplicateFiles'].hasOwnProperty(files[file].file._data.crc32))){
             similarityAnalysisResults['duplicateFiles'][files[file].file._data.crc32]=duplicateFiles;
         }
         //analysing file contents
         readObject(files[file].file, file, "similarityAnalysis", '', files[file].type=="zip");
     }
+    similarityAnalysisResults['duplicateFilesEntries']=Object.entries(similarityAnalysisResults['duplicateFiles']);
 }
 
 function similarityAnalysis(){
     let similarityDataArray = Object.values(similarityDataAllFiles);
-    console.log(similarityAnalysisResults);
     console.log(similarityDataAllFiles);
     //student has submitted total less than 100kb of data
     //student worked in total way too little
@@ -1398,13 +1406,11 @@ function similarityAnalysis(){
         return acc;
     }, {});
 
-    similarityAnalysisResults['pastedTexts'] = Object.fromEntries(
-        Object.entries(pastedTextsGrouped).map(([key, value]) => [key,
-            Object.fromEntries(
+    similarityAnalysisResults['pastedTexts'] =
+        Object.values(pastedTextsGrouped).map( value =>
                 Object.entries(value).filter(([innerKey, innerValue]) => innerValue.length > 1) //remove pasted texts which didn't have matches
-            )
-        ]).filter(([key, value]) => Object.keys(value).length > 0) //remove pasted text length which didn't have matches
-    );
+        ).filter(value => value.length > 0) //remove pasted text length which didn't have matches
+            .flat(1); //flatten array
 
     let folderNameIsNull = false;
     for(let i = 0; i < similarityDataArray.length; i++) {
@@ -1414,5 +1420,46 @@ function similarityAnalysis(){
 
             }
         }
+    }
+
+    $('#similarity-analysis-modal').modal('show');
+    console.log(similarityAnalysisResults);
+    displaySimilarityAnalysisResults();
+}
+
+function addSimilarityAnalysisResultsToDOM(paneId, analysisType) {
+    let newTabListElement = ``;
+    let newTabPanelElement = ``;
+    let metricId = '';
+    let metricValues = [];
+    let tabPanelValue = ``;
+    for (let i = 0; i < similarityAnalysisResults[analysisType].length; i++) {
+        metricId = similarityAnalysisResults[analysisType][i][0];
+        metricValues = similarityAnalysisResults[analysisType][i][1];
+        tabPanelValue = `<h5><pre>Value: ${metricId}</pre></h5>`;
+        for (let j = 0; j < metricValues.length; j++) {
+            tabPanelValue += `<p><b>${j}.</b> ${metricValues[j].folderName}</p>`;
+        }
+        newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId.substring(0, 10)+'...'}</a>`;
+        newTabPanelElement = `<div class="tab-pane fade ${i == 0 ? 'active show' : ''}" id="similarity-${i.toString() + '-' + analysisType}" role="tabpanel">${tabPanelValue}<hr></div>`;
+        $(`#${paneId} .list-group`).append(newTabListElement);
+        $(`#${paneId} .tab-content`).append(newTabPanelElement);
+    }
+}
+
+function displaySimilarityAnalysisResults(){
+    if(Object.keys(similarityAnalysisResults).length==0){
+        $('#similarity-summary-pane').addClass('show active');
+        return;
+    }
+    if(similarityAnalysisResults['duplicateFilesEntries']?.length>0){
+        $('#duplicate-files-tab span').text(similarityAnalysisResults['duplicateFilesEntries'].length);
+        $('#duplicate-files-tab').removeClass('d-none');
+        addSimilarityAnalysisResultsToDOM('duplicate-files-pane', 'duplicateFilesEntries');
+    }
+    if(similarityAnalysisResults['pastedTexts']?.length>0){
+        $('#pasted-texts-tab span').text(similarityAnalysisResults['pastedTexts'].length);
+        $('#pasted-texts-tab').removeClass('d-none');
+        addSimilarityAnalysisResultsToDOM('pasted-texts-pane', 'pastedTexts');
     }
 }
