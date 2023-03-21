@@ -12,7 +12,7 @@ var textGraphDataLog={};
 var csvValues=[];
 var filesParsed=0;
 var similarityDataAllFiles={};
-var similarityAnalysisResults={}
+var similarityAnalysisResults={};
 
 var chart;
 
@@ -36,7 +36,7 @@ $(function() {
       }]
     });
 
-    $('#similarity-analysis-modal').modal('show');
+    //$('#similarity-analysis-modal').modal('show');
 });
  
 
@@ -51,6 +51,7 @@ function addListeners(){
     $('#sidebarCollapse').click(toggleSidebar);
     $('#replayerModal').on('shown.bs.modal', replayerOnShown); //This event is fired when the modal has been made visible to the user 
     $('#replayerModal').on('hide.bs.modal', replayerOnHide);   //This event is fired immediately when the hide instance method has been called.
+    $('#similarity-analysis-modal').on('hide.bs.modal', similarityOnHide);   //This event is fired immediately when the hide instance method has been called.
     $('#replayerModal').on('hidden.bs.modal', replayerOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
     $('#modal-sidebar-event-list').on('keydown', onKeyDown); //allows to move around with arrow keys   #log-analysis-groups
     $('#textGraphModal').on('hidden.bs.modal', textGraphOnHidden); //This event is fired when the modal has finished being hidden from the user (will wait for CSS transitions to complete).
@@ -283,6 +284,7 @@ function fileSubmit(){
     csvValues=[];
     $('#alert-expand-control').alert('close');
     errorAnalysing=[];
+    $('#compare-button').prop('disabled', true);
 
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
@@ -296,8 +298,10 @@ function fileSubmit(){
         }
     }
 
-    setTimeout(() => {  
-         if(errorAnalysing.length>0){
+    setTimeout(() => {
+        $('#compare-button').prop('disabled', false); //enable similarity analysis button
+
+        if(errorAnalysing.length>0){
             var tableErrors=`
             <div id='alert-expand-control' class="alert alert-warning alert-dismissible fade show" 
             data-toggle="collapse" href="#alert-expand-body" aria-expanded="false" aria-controls="alert-expand-body" role="alert">
@@ -310,14 +314,14 @@ function fileSubmit(){
                     <ul id="alert-error-list" class="scroll-auto">
                     </ul>
                 </div>
-            </div>
-                            `;
+            </div>`;
+            $("#alert-expand-control").remove();
             $('body').append(tableErrors);
-             for(let i=0;i<errorAnalysing.length;i++){
+            for(let i=0;i<errorAnalysing.length;i++){
                 $('#alert-error-list').append(`<li>${errorAnalysing[i]}</li>`);
-             }
-         }
-        }, 1000);
+            }
+        }
+    }, 5000);
 
 }
 
@@ -329,10 +333,10 @@ function fileSubmit(){
  * @param {*} path - path to current zipFile object
  */
 function parseZipFile(entryId, zipFile, path=''){
-    var new_zip = new JSZip(); //new instance
+    let new_zip = new JSZip(); //new instance
     new_zip.loadAsync(zipFile)
     .then(function(zip) {
-        var files = zip.file(/.*/); //all files in array ZipObjects
+        let files = zip.file(/.*/); //all files in array ZipObjects
         for (let i=0;i<files.length;i++){
             if( RegExp('\.txt').test(files[i].name)){ //text file
                 readObject( files[i], entryId+'-'+i, "analyse", path, true);
@@ -622,6 +626,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if($("#input-analysis-type")[0].checked){ //multiple student analysis
         fileAnalysisResults = Object.assign({"foldername":nameObject.folderName}, fileAnalysisResults);
         files[entryId]['folderName']=nameObject.folderName;
+        files[entryId]['fileName']=nameObject.fileName;
     }
     csvValues.push(fileAnalysisResults);
 }
@@ -955,6 +960,7 @@ function parseLogFile(jsonLog, type, entryId){
     }else if(type=="similarityAnalysis"){
         similarityDataAllFiles[entryId]={'jsonLog': jsonLog
                                 , 'entryId': entryId
+                                , 'fileName': files[entryId].fileName
                                 , 'folderName': files[entryId].folderName
                                 , 'pastedTexts': pastedTexts
                                 , "replayerFiles": JSON.parse(JSON.stringify(replayerFiles))
@@ -1357,6 +1363,10 @@ function resetReplayerPlayBtn(){
 }
 
 function getSimilarityAnalysisData(){
+    resetSimilarityAnalysisResultsDOM();
+    $('#compare-button').prop('disabled', true);
+    $('#compare-button span').removeClass('d-none');
+    similarityAnalysisResults={};
     let filesArr=Object.values(files);
     let duplicateFiles=[];
     similarityAnalysisResults['duplicateFiles']={}
@@ -1387,19 +1397,21 @@ function similarityAnalysis(){
     //get pasted text grouped by text length
     const pastedTextsGrouped = similarityDataArray.reduce((acc, log) => {
         let textLengthKey = '';
+        let pastedTextValue={};
         log.pastedTexts.filter(pastedText => pastedText.text.length>50) //no copied texts with less than 50 chars
             .forEach(pastedText => {
                 textLengthKey = pastedText.text.length.toString();
+                pastedTextValue={'entryId': log.entryId, 'fileName': log.fileName, 'folderName': log.folderName};
                 if(!(textLengthKey in acc)){
                     acc[textLengthKey]= {};
-                    acc[textLengthKey][pastedText.text]=[{'entryId': log.entryId, 'folderName': log.folderName}];
+                    acc[textLengthKey][pastedText.text]=[pastedTextValue];
                 }else{
                     if(!(acc[textLengthKey].hasOwnProperty(pastedText.text))){
-                        acc[textLengthKey][pastedText.text]=[{'entryId': log.entryId, 'folderName': log.folderName}];
+                        acc[textLengthKey][pastedText.text]=[pastedTextValue];
                     }else if(!(acc[textLengthKey][pastedText.text].find(i => i.entryId==log.entryId ||                                //no identical copies from same file
                                                                                                 (i.folderName!=null && i.folderName==log.folderName)))    //no identical copies from same student
                     ){
-                        acc[textLengthKey][pastedText.text].push({'entryId': log.entryId, 'folderName': log.folderName});
+                        acc[textLengthKey][pastedText.text].push(pastedTextValue);
                     }
                 }
             })
@@ -1427,7 +1439,23 @@ function similarityAnalysis(){
     displaySimilarityAnalysisResults();
 }
 
-function addSimilarityAnalysisResultsToDOM(paneId, analysisType) {
+function similarityOnHide(){
+    resetSimilarityAnalysisResultsDOM();
+    $('#compare-button').prop('disabled', false);
+    $('#compare-button span').addClass('d-none');
+}
+
+function resetSimilarityAnalysisResultsDOM(){
+    let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane']];
+    modalTabs.forEach(tabArr =>{
+        $(`#${tabArr[0]} span`).text(0);
+        $(`#${tabArr[1]}`).addClass('d-none');
+        $(`#${tabArr[1]} .list-group`).empty();
+        $(`#${tabArr[1]} .tab-content`).empty();
+    })
+}
+
+function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     let newTabListElement = ``;
     let newTabPanelElement = ``;
     let metricId = '';
@@ -1438,7 +1466,7 @@ function addSimilarityAnalysisResultsToDOM(paneId, analysisType) {
         metricValues = similarityAnalysisResults[analysisType][i][1];
         tabPanelValue = `<h5><pre>Value: ${metricId}</pre></h5>`;
         for (let j = 0; j < metricValues.length; j++) {
-            tabPanelValue += `<p><b>${j}.</b> ${metricValues[j].folderName}</p>`;
+            tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
         }
         newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId.substring(0, 10)+'...'}</a>`;
         newTabPanelElement = `<div class="tab-pane fade ${i == 0 ? 'active show' : ''}" id="similarity-${i.toString() + '-' + analysisType}" role="tabpanel">${tabPanelValue}<hr></div>`;
@@ -1454,12 +1482,13 @@ function displaySimilarityAnalysisResults(){
     }
     if(similarityAnalysisResults['duplicateFilesEntries']?.length>0){
         $('#duplicate-files-tab span').text(similarityAnalysisResults['duplicateFilesEntries'].length);
-        $('#duplicate-files-tab').removeClass('d-none');
-        addSimilarityAnalysisResultsToDOM('duplicate-files-pane', 'duplicateFilesEntries');
+        $('#duplicate-files-pane').removeClass('d-none');
+        addSimilarityAnalysisResultsDOM('duplicate-files-pane', 'duplicateFilesEntries');
     }
     if(similarityAnalysisResults['pastedTexts']?.length>0){
         $('#pasted-texts-tab span').text(similarityAnalysisResults['pastedTexts'].length);
-        $('#pasted-texts-tab').removeClass('d-none');
-        addSimilarityAnalysisResultsToDOM('pasted-texts-pane', 'pastedTexts');
+        $('#pasted-texts-pane').removeClass('d-none');
+        addSimilarityAnalysisResultsDOM('pasted-texts-pane', 'pastedTexts');
     }
+    //$(`#similarity-analysis-modal .list-group-item`).keyup(switchListItem);
 }

@@ -120,9 +120,10 @@
               </button>
             </div>
             <div class="col-auto m-1 mb-3" id="compare-button-div">
-              <button class="btn btn-dark btn-sm" type="button" id="compare-button" >
+              <button class="btn btn-dark btn-sm" type="button" id="compare-button">
                 <i class="fa-solid fa-code-compare"></i>
                 Compare analysis results
+                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
               </button>
             </div>
           </div>
@@ -242,7 +243,7 @@
             <div class="container">
               <h2 class="text-center">Cheating Detection</h2>
             </div>
-            <div id='modal-main-header-similarity' class="nav nav-pills justify-content-center" role="tablist">
+            <div id='modal-main-header-similarity' class="nav nav-pills justify-content-center scroll-auto" role="tablist">
               <a id="duplicate-files-tab" class="nav-item nav-link" data-toggle="tab" href="#duplicate-files-pane" role="tab">
                 Duplicate files<span class="badge badge-pill badge-warning ml-1">0</span>
               </a>
@@ -267,26 +268,28 @@
                 </div>
               </div>
               <!-- duplicate-files -->
-              <div id="duplicate-files-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="duplicate-files-tab">
-                <div class="row event-list">
-                  <div class="col-md-3 modal-sidebar scroll-auto">
+              <div id="duplicate-files-pane" class="tab-pane fade d-none" role="tabpanel" aria-labelledby="duplicate-files-tab">
+                <div class="row similarity-modal-pane">
+                  <div class="col-3 modal-sidebar scroll-auto p-0">
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">File checksum</a>
                     <div class="list-group" role="tablist">
                     </div>
                   </div>
-                  <div class="col-md-9 modal-main-content scroll-auto">
+                  <div class="col-9 modal-main-content scroll-auto">
                     <div class="tab-content">
                     </div>
                   </div>
                 </div>
               </div>
               <!-- Pasted texts -->
-              <div id="pasted-texts-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="pasted-texts-tab">
-                <div class="row event-list">
-                  <div class="col-md-3 modal-sidebar scroll-auto">
+              <div id="pasted-texts-pane" class="tab-pane fade d-none" role="tabpanel" aria-labelledby="pasted-texts-tab">
+                <div class="row similarity-modal-pane">
+                  <div class="col-3 modal-sidebar scroll-auto p-0">
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Pasted Text</a>
                     <div class="list-group" role="tablist">
                     </div>
                   </div>
-                  <div class="col-md-9 modal-main-content scroll-auto">
+                  <div class="col-9 modal-main-content scroll-auto">
                     <div class="tab-content">
                     </div>
                   </div>

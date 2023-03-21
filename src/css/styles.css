@@ -279,10 +279,13 @@ pre{
     overflow: auto;
 }
 
-.event-list{
-    font-size: 10px;
+.event-list, .similarity-modal-pane{
     height:75vh;
   }
+
+.event-list{
+    font-size: 10px;
+}
 
 .event-row:hover{
     background-color: #d3d3d3;
@@ -441,18 +444,12 @@ canvas{
     .content.active {
         width: calc(100% - 250px);
     }
-/*     .modal-sidebar{
-        width: 150px;
-    } */
 
     .modal-sidebar-header{
         font-size: 14px;
         font-weight: bold;
     }
-    
-/*     .modal-main-content{
-        width: calc(100% - 100px);
-    } */
+
 }
 
 @media (max-width: 576px) {
@@ -464,4 +461,8 @@ canvas{
         line-height: 20px;
         font-size: 15px;
     }
-} 
+}
+
+#modal-main-header-similarity{
+    max-height:9vh;
+}
