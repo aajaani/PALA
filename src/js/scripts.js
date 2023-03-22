@@ -1455,6 +1455,15 @@ function resetSimilarityAnalysisResultsDOM(){
     })
 }
 
+/**switches similarity list item
+ *
+ */
+function switchSimilarityListItem(keyEvent) {
+    if (keyEvent.code == "Tab") {
+        $(this).tab('show');
+    }
+}
+
 function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     let newTabListElement = ``;
     let newTabPanelElement = ``;
@@ -1464,7 +1473,8 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     for (let i = 0; i < similarityAnalysisResults[analysisType].length; i++) {
         metricId = similarityAnalysisResults[analysisType][i][0];
         metricValues = similarityAnalysisResults[analysisType][i][1];
-        tabPanelValue = `<h5><pre>Value: ${metricId}</pre></h5>`;
+        tabPanelValue = `<div class="card"><div class="card-body"><pre><code class="python hljs">${metricId}</code></pre></div></div>`;
+
         for (let j = 0; j < metricValues.length; j++) {
             tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
         }
@@ -1490,5 +1500,7 @@ function displaySimilarityAnalysisResults(){
         $('#pasted-texts-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('pasted-texts-pane', 'pastedTexts');
     }
-    //$(`#similarity-analysis-modal .list-group-item`).keyup(switchListItem);
+    $(`#modal-main-header-similarity .nav-item:first`).click();
+    $(`#similarity-analysis-modal .list-group-item`).keyup(switchSimilarityListItem);
+    hljs.highlightAll();
 }
