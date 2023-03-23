@@ -250,8 +250,8 @@
               <a id="pasted-texts-tab" class="nav-item nav-link" data-toggle="tab" href="#pasted-texts-pane" role="tab">
                 Pasted texts<span class="badge badge-pill badge-warning ml-1">0</span>
               </a>
-              <a id="student-todo-tab" class="nav-item nav-link" data-toggle="tab" href="#student-todo-pane" role="tab">
-                Student based TODO<span class="badge badge-pill badge-warning ml-1">0</span>
+              <a id="student-work-tab" class="nav-item nav-link" data-toggle="tab" href="#student-work-pane" role="tab">
+                Student work analysis<span class="badge badge-pill badge-warning ml-1">0</span>
               </a>
               <a id="source-code-tab" class="nav-item nav-link" data-toggle="tab" href="#source-code-pane" role="tab">
                 Source code comparisons TODO<span class="badge badge-pill badge-warning ml-1">0</span>
@@ -295,9 +295,19 @@
                   </div>
                 </div>
               </div>
-              <!-- Student based -->
-              <div id="student-todo-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="student-todo-tab">
-                Student based TODO
+              <!-- Student work analysis -->
+              <div id="student-work-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="student-work-tab">
+                <div class="row similarity-modal-pane">
+                  <div class="col-3 modal-sidebar scroll-auto p-0">
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Student folder</a>
+                    <div class="list-group" role="tablist">
+                    </div>
+                  </div>
+                  <div class="col-9 modal-main-content scroll-auto">
+                    <div class="tab-content">
+                    </div>
+                  </div>
+                </div>
               </div>
               <!-- Source code comparisons -->
               <div id="source-code-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="source-code-tab">

@@ -282,8 +282,9 @@ function fileSubmit(){
     files=[];
     errorAnalysing=[];
     csvValues=[];
-    $('#alert-expand-control').alert('close');
     errorAnalysing=[];
+    similarityDataAllFiles={};
+    $('#alert-expand-control').alert('close');
     $('#compare-button').prop('disabled', true);
 
     for(i=0;i<logInput[0].files.length;i++){
@@ -626,9 +627,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if($("#input-analysis-type")[0].checked){ //multiple student analysis
         fileAnalysisResults = Object.assign({"foldername":nameObject.folderName}, fileAnalysisResults);
         files[entryId]['folderName']=nameObject.folderName;
-        files[entryId]['fileName']=nameObject.fileName;
     }
     csvValues.push(fileAnalysisResults);
+    files[entryId]['fileName']=nameObject.fileName;
+    files[entryId]['fileAnalysisResults']=fileAnalysisResults;
 }
 
 /**
@@ -679,11 +681,13 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
 
     setActive="";
     setActivePanel="";
+    let fileSize=0;
     if (isZipObject){
-        fileSize=`${Math.round(file._data.uncompressedSize/1024)}KB`;  
+        fileSize=Math.round(file._data.uncompressedSize/1024);
     }else{
-        fileSize=`${Math.round(file.size/1024)}KB`;
+        fileSize=Math.round(file.size/1024);
     }
+    files[entryId]['fileSize']=fileSize;
     if(tabList[0].childElementCount===0){//first entry
         setActive="active";    
         setActivePanel="show active";
@@ -691,7 +695,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
 
     var newTabListElement = `<a class="list-group-item list-group-item-action failid ${setActive}" 
                             id="list-${entryId}-list" data-toggle="list" href="#list-${entryId}" role="tab" aria-controls="${entryId}" data-filename="${nameObject.fileName}">
-                            <span class="badge badge-primary badge-pill">${fileSize}</span><br>${nameObject.fileName}</a>`;
+                            <span class="badge badge-primary badge-pill">${fileSize.toString()+'KB'}</span><br>${nameObject.fileName}</a>`;
 
     var newTabPanelElement = `<div class="tab-pane fade ${setActivePanel}" id="${panelId}" role="tabpanel" aria-labelledby="list-${entryId}-list"></div>`;
 
@@ -743,20 +747,20 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
 
 
     //file ordering
-    let files = $('.failid');
+    let orderedFiles = $('.failid');
     if (typeOfAnalysis){ //Multiple student analysis
-        files = $('#'+nameObject.multipleStudentId+' .failid');
+        orderedFiles = $('#'+nameObject.multipleStudentId+' .failid');
     }  
 
-    if (files.length==0){
+    if (orderedFiles.length==0){
         tabList.append(newTabListElement);
     }else{ //order
-        for(let i=0;i<files.length;i++){
-            if(files[i].dataset.filename>nameObject.fileName){ //current folder is alphapetically higher
-                $(files[i]).before(newTabListElement);
+        for(let i=0;i<orderedFiles.length;i++){
+            if(orderedFiles[i].dataset.filename>nameObject.fileName){ //current folder is alphapetically higher
+                $(orderedFiles[i]).before(newTabListElement);
                 break;
             }
-            if(i==files.length-1){ //last in order
+            if(i==orderedFiles.length-1){ //last in order
                 tabList.append(newTabListElement);
                 break;
             }
@@ -812,6 +816,10 @@ function toISOStringLocalUTCOffset( date) {
 function getDateTimeDiff(dateStart, DateEnd){
     let timeDiff=new Date(DateEnd-dateStart);
     return (timeDiff.getDate()-1).toString()+'T'+timeDiff.toISOString().split('T')[1].replace("Z","");
+}
+
+function getDateDiffInMinutes(date1, date2) {
+    return Math.floor((Math.abs(date2 - date1) / 1000) / 60);
 }
 
 
@@ -964,7 +972,8 @@ function parseLogFile(jsonLog, type, entryId){
                                 , 'folderName': files[entryId].folderName
                                 , 'pastedTexts': pastedTexts
                                 , "replayerFiles": JSON.parse(JSON.stringify(replayerFiles))
-                                , "shellText": JSON.parse(JSON.stringify(shellText))};
+                                , "shellText": JSON.parse(JSON.stringify(shellText))
+                                , "file": files[entryId]};
         filesParsed++;
         if(filesParsed==csvValues.length){
             filesParsed=0;
@@ -1385,10 +1394,7 @@ function getSimilarityAnalysisData(){
 
 function similarityAnalysis(){
     let similarityDataArray = Object.values(similarityDataAllFiles);
-    console.log(similarityDataAllFiles);
-    //student has submitted total less than 100kb of data
-    //student worked in total way too little
-    //copied code analysis
+    //console.log(similarityDataAllFiles);
     //timeline analysis
     //length of code analysis
     //python-ast library python code analysis
@@ -1409,7 +1415,7 @@ function similarityAnalysis(){
                     if(!(acc[textLengthKey].hasOwnProperty(pastedText.text))){
                         acc[textLengthKey][pastedText.text]=[pastedTextValue];
                     }else if(!(acc[textLengthKey][pastedText.text].find(i => i.entryId==log.entryId ||                                //no identical copies from same file
-                                                                                                (i.folderName!=null && i.folderName==log.folderName)))    //no identical copies from same student
+                                                                            (i.folderName!=null && i.folderName==log.folderName)))    //no identical copies from same student
                     ){
                         acc[textLengthKey][pastedText.text].push(pastedTextValue);
                     }
@@ -1424,6 +1430,40 @@ function similarityAnalysis(){
         ).filter(value => value.length > 0) //remove pasted text length which didn't have matches
             .flat(1); //flatten array
 
+    if(similarityDataArray[0].folderName!=null){
+        //group students
+        const studentWorkGrouped = similarityDataArray.reduce((acc, log) => {
+            if(acc.hasOwnProperty(log.folderName)){
+                acc[log.folderName][0].value += log.file.fileAnalysisResults["run count"];
+                acc[log.folderName][1].value += getDateDiffInMinutes(new Date(log.jsonLog[0].time),new Date(log.jsonLog[log.jsonLog.length-1].time));
+                acc[log.folderName][2].value += log.file.fileSize;
+            }else{
+                acc[log.folderName]=[{"problem":"Total run count is ", "value": log.file.fileAnalysisResults["run count"], "unit":""}
+                    , {"problem":"Total time spent working is ", "value": getDateDiffInMinutes(new Date(log.jsonLog[0].time),new Date(log.jsonLog[log.jsonLog.length-1].time)), "unit":"minutes"}
+                    , {"problem":"Incomplete logfiles submitted, total of", "value": log.file.fileSize, "unit":"KB"}];
+            }
+                return acc;
+            }, {});
+
+        //student based analysis
+        similarityAnalysisResults['studentsWorkData'] = Object.entries(studentWorkGrouped).reduce((acc, log) => {
+            if(log[1][2].value>=100){
+                log[1].splice(2,1);
+            }
+            if(log[1][1].value>=15){
+                log[1].splice(1,1);
+            }
+
+            if(log[1][0].value!=0){
+                log[1].splice(0,1);
+            }
+            if(log[1].length>0){
+                acc.push(log);
+            }
+            return acc;
+        }, []);;
+    }
+
     let folderNameIsNull = false;
     for(let i = 0; i < similarityDataArray.length; i++) {
         folderNameIsNull = similarityDataArray[i].folderName == null;
@@ -1435,7 +1475,7 @@ function similarityAnalysis(){
     }
 
     $('#similarity-analysis-modal').modal('show');
-    console.log(similarityAnalysisResults);
+    //console.log(similarityAnalysisResults);
     displaySimilarityAnalysisResults();
 }
 
@@ -1446,7 +1486,7 @@ function similarityOnHide(){
 }
 
 function resetSimilarityAnalysisResultsDOM(){
-    let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane']];
+    let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane'], ['student-work-tab', 'student-work-pane']];
     modalTabs.forEach(tabArr =>{
         $(`#${tabArr[0]} span`).text(0);
         $(`#${tabArr[1]}`).addClass('d-none');
@@ -1476,9 +1516,16 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
         tabPanelValue = `<div class="card"><div class="card-body"><pre><code class="python hljs">${metricId}</code></pre></div></div>`;
 
         for (let j = 0; j < metricValues.length; j++) {
-            tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
+            if(analysisType=='studentsWorkData'){
+                tabPanelValue += `<p><b><h6>${j}.</h6></b> ${metricValues[j].problem} <b> ${metricValues[j].value.toString() +' '+ metricValues[j].unit} </b></p>`;
+            }else{
+                tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
+            }
         }
-        newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId.substring(0, 10)+'...'}</a>`;
+        if(analysisType=='pastedTexts'){
+            metricId = metricId.substring(0, 10)+'...';
+        }
+        newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId}</a>`;
         newTabPanelElement = `<div class="tab-pane fade ${i == 0 ? 'active show' : ''}" id="similarity-${i.toString() + '-' + analysisType}" role="tabpanel">${tabPanelValue}<hr></div>`;
         $(`#${paneId} .list-group`).append(newTabListElement);
         $(`#${paneId} .tab-content`).append(newTabPanelElement);
@@ -1499,6 +1546,11 @@ function displaySimilarityAnalysisResults(){
         $('#pasted-texts-tab span').text(similarityAnalysisResults['pastedTexts'].length);
         $('#pasted-texts-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('pasted-texts-pane', 'pastedTexts');
+    }
+    if(similarityAnalysisResults['studentsWorkData']?.length>0){
+        $('#student-work-tab span').text(similarityAnalysisResults['studentsWorkData'].length);
+        $('#student-work-pane').removeClass('d-none');
+        addSimilarityAnalysisResultsDOM('student-work-pane', 'studentsWorkData');
     }
     $(`#modal-main-header-similarity .nav-item:first`).click();
     $(`#similarity-analysis-modal .list-group-item`).keyup(switchSimilarityListItem);
