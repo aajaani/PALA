@@ -966,13 +966,13 @@ function parseLogFile(jsonLog, type, entryId){
         }
         chart = getNewChart('AllFiles');
     }else if(type=="similarityAnalysis"){
+        replayerFiles = replayerFiles.map(i => ({...i, 'codeViewTextString' : i.codeViewText.join('\n')}));
         similarityDataAllFiles[entryId]={'jsonLog': jsonLog
                                 , 'entryId': entryId
                                 , 'fileName': files[entryId].fileName
                                 , 'folderName': files[entryId].folderName
                                 , 'pastedTexts': pastedTexts
                                 , "replayerFiles": JSON.parse(JSON.stringify(replayerFiles))
-                                , "shellText": JSON.parse(JSON.stringify(shellText))
                                 , "file": files[entryId]};
         filesParsed++;
         if(filesParsed==csvValues.length){
@@ -1394,11 +1394,6 @@ function getSimilarityAnalysisData(){
 
 function similarityAnalysis(){
     let similarityDataArray = Object.values(similarityDataAllFiles);
-    //console.log(similarityDataAllFiles);
-    //timeline analysis
-    //length of code analysis
-    //python-ast library python code analysis
-
 
     //get pasted text grouped by text length
     const pastedTextsGrouped = similarityDataArray.reduce((acc, log) => {
@@ -1408,7 +1403,7 @@ function similarityAnalysis(){
             .forEach(pastedText => {
                 textLengthKey = pastedText.text.length.toString();
                 pastedTextValue={'entryId': log.entryId, 'fileName': log.fileName, 'folderName': log.folderName};
-                if(!(textLengthKey in acc)){
+                if(!(acc.hasOwnProperty(textLengthKey))){
                     acc[textLengthKey]= {};
                     acc[textLengthKey][pastedText.text]=[pastedTextValue];
                 }else{
@@ -1420,13 +1415,43 @@ function similarityAnalysis(){
                         acc[textLengthKey][pastedText.text].push(pastedTextValue);
                     }
                 }
-            })
+            });
         return acc;
     }, {});
 
+    //pasted texts analysis
     similarityAnalysisResults['pastedTexts'] =
         Object.values(pastedTextsGrouped).map( value =>
                 Object.entries(value).filter(([innerKey, innerValue]) => innerValue.length > 1) //remove pasted texts which didn't have matches
+        ).filter(value => value.length > 0) //remove pasted text length which didn't have matches
+            .flat(1); //flatten array
+
+    //source code x pasted texts grouped by text length
+    const sourceCodePastedGrouped = similarityDataArray.reduce((acc, log) => {
+        let textLengthKey = '';
+        log.replayerFiles.filter(file => file.codeViewTextString.length>50)
+            .forEach(file => {
+                textLengthKey = file.codeViewTextString.length.toString();
+                if(acc.hasOwnProperty(textLengthKey)){
+                    if(acc[textLengthKey].hasOwnProperty(file.codeViewTextString)){
+                        if(acc[textLengthKey][file.codeViewTextString].find(i => i.entryId!=log.entryId &&                                //no identical copies from same file
+                                                                                 (i.folderName==null || i.folderName!=log.folderName))    //no identical copies from same student
+                        ){
+                            acc[textLengthKey][file.codeViewTextString].push({'entryId': log.entryId, 'fileName': log.fileName
+                                , 'folderName': log.folderName, 'programFile': file.filename});
+                        }
+                    }
+                }
+            });
+        return acc;
+    },pastedTextsGrouped);
+
+    //sourceCodePasted analysis
+    similarityAnalysisResults['sourceCodePasted'] =
+        Object.values(sourceCodePastedGrouped).map( value =>
+            Object.entries(value)
+                .filter(([innerKey, innerValue]) => innerValue.find(i => i.hasOwnProperty('programFile')))
+                .filter(([innerKey, innerValue]) => innerValue.length > 1) //remove pasted texts which didn't have matches
         ).filter(value => value.length > 0) //remove pasted text length which didn't have matches
             .flat(1); //flatten array
 
@@ -1475,7 +1500,6 @@ function similarityAnalysis(){
     }
 
     $('#similarity-analysis-modal').modal('show');
-    //console.log(similarityAnalysisResults);
     displaySimilarityAnalysisResults();
 }
 
@@ -1486,7 +1510,8 @@ function similarityOnHide(){
 }
 
 function resetSimilarityAnalysisResultsDOM(){
-    let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane'], ['student-work-tab', 'student-work-pane']];
+    let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane']
+        , ['student-work-tab', 'student-work-pane'], ['source-code-pasted-tab', 'source-code-pasted-pane']];
     modalTabs.forEach(tabArr =>{
         $(`#${tabArr[0]} span`).text(0);
         $(`#${tabArr[1]}`).addClass('d-none');
@@ -1519,10 +1544,16 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
             if(analysisType=='studentsWorkData'){
                 tabPanelValue += `<p><b><h6>${j}.</h6></b> ${metricValues[j].problem} <b> ${metricValues[j].value.toString() +' '+ metricValues[j].unit} </b></p>`;
             }else{
-                tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
+                if(analysisType=='sourceCodePasted' && metricValues[j].hasOwnProperty('programFile')){
+                    tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + 
+                    (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
+                    <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].programFile)}</p>`;
+                }else{
+                    tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
+                }
             }
         }
-        if(analysisType=='pastedTexts'){
+        if(['pastedTexts', 'sourceCodePasted'].includes(analysisType)){
             metricId = metricId.substring(0, 10)+'...';
         }
         newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId}</a>`;
@@ -1551,6 +1582,11 @@ function displaySimilarityAnalysisResults(){
         $('#student-work-tab span').text(similarityAnalysisResults['studentsWorkData'].length);
         $('#student-work-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('student-work-pane', 'studentsWorkData');
+    }
+    if(similarityAnalysisResults['sourceCodePasted']?.length>0){
+        $('#source-code-pasted-tab span').text(similarityAnalysisResults['sourceCodePasted'].length);
+        $('#source-code-pasted-pane').removeClass('d-none');
+        addSimilarityAnalysisResultsDOM('source-code-pasted-pane', 'sourceCodePasted');
     }
     $(`#modal-main-header-similarity .nav-item:first`).click();
     $(`#similarity-analysis-modal .list-group-item`).keyup(switchSimilarityListItem);
