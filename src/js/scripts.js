@@ -894,7 +894,7 @@ function parseLogFile(jsonLog, type, entryId){
 
         if(type=="replayer"){
             if(i%logCacheInterval==0){
-                jsonLog[i]["analysation_cache"]={"replayerFiles":JSON.parse(JSON.stringify(replayerFiles)),"shellText":JSON.parse(JSON.stringify(shellText))}; 
+                jsonLog[i]["analysation_cache"]={"replayerFiles":deepCopy(replayerFiles),"shellText":deepCopy(shellText)};
             }
 
             if(i>1){
@@ -969,17 +969,21 @@ function parseLogFile(jsonLog, type, entryId){
         replayerFiles = replayerFiles.map(i => ({...i, 'codeViewTextString' : i.codeViewText.join('\n')}));
         similarityDataAllFiles[entryId]={'jsonLog': jsonLog
                                 , 'entryId': entryId
-                                , 'fileName': files[entryId].fileName
-                                , 'folderName': files[entryId].folderName
+                                , 'fileName': deepCopy(files[entryId].fileName)
+                                , 'folderName': deepCopy(files[entryId].folderName)
                                 , 'pastedTexts': pastedTexts
-                                , "replayerFiles": JSON.parse(JSON.stringify(replayerFiles))
-                                , "file": files[entryId]};
+                                , "replayerFiles": replayerFiles
+                                , "file": deepCopy(files[entryId])};
         filesParsed++;
         if(filesParsed==csvValues.length){
             filesParsed=0;
             similarityAnalysis();
         }
     }
+}
+
+function deepCopy(obj) {
+    return JSON.parse(JSON.stringify(obj));
 }
 
 
@@ -1392,6 +1396,59 @@ function getSimilarityAnalysisData(){
     similarityAnalysisResults['duplicateFilesEntries']=Object.entries(similarityAnalysisResults['duplicateFiles']);
 }
 
+function getNearestSourceCodes( sourceCodeData, index){
+    const scale = Math.min(Math.floor(10000/sourceCodeData.length),5);
+    return sourceCodeData.slice(Math.max(index - scale - Math.max(scale - (sourceCodeData.length - index - 1),0), 0)
+                                , Math.min(index + scale + Math.max(scale-index,0), sourceCodeData.length))
+}
+
+async function sourceCodeComparison(similarityDataArray) {
+    //await new Promise(resolve => setTimeout(resolve));
+    console.log("lets go2");
+    const sourceCodeDataReduced = similarityDataArray.reduce((acc, log) => {
+        log.replayerFiles.filter(file => file.codeViewTextString.length > 100)
+            .forEach(file => {
+                acc.push({
+                    'entryId': log.entryId, 'fileName': log.fileName, 'text_widget_id': file.text_widget_id
+                    , 'folderName': log.folderName, 'programFile': file.filename, 'text': file.codeViewTextString
+                })
+            });
+        return acc;
+    }, []).sort((a, b) => a.text.length - b.text.length);
+
+
+
+    const sourceCodeComparison = sourceCodeDataReduced.reduce((acc, log1, index1) => {
+        let key = '';
+        let fileKey = '';
+        let comparison = 0;
+        console.log(index1);
+        getNearestSourceCodes(sourceCodeDataReduced, index1).forEach((log2) => {
+            if (log1.entryId !== log2 && (log1.folderName == null || log1.folderName != log2.folderName)) {
+                comparison = stringSimilarity.compareTwoStrings(log1.text, log2.text);
+                if (comparison > 0.95) {
+                    key = log1.folderName == null ? log1.entryId : log1.folderName;
+                    fileKey = log1.entryId+'_'+log1.text_widget_id;
+                    if (acc.hasOwnProperty(key)) {
+                        if(acc[key].hasOwnProperty(fileKey)){
+                            acc[key][fileKey]['similarObjects'].push({...log2, similarity: comparison});
+                        }else{
+                            acc[key][fileKey] = {'thisObject': log1, 'similarObjects': [{...log2, similarity: comparison}]};
+                        }
+                        
+                    } else {
+                        acc[key] = {};
+                        acc[key][fileKey] = {'thisObject': log1, 'similarObjects': [{...log2, similarity: comparison}]};
+                    }
+                }
+            }
+        });
+        return acc;
+    }, {});
+
+    similarityAnalysisResults['sourceCodeComparison'] = Object.entries(sourceCodeComparison);
+}
+
 function similarityAnalysis(){
     let similarityDataArray = Object.values(similarityDataAllFiles);
 
@@ -1455,6 +1512,10 @@ function similarityAnalysis(){
         ).filter(value => value.length > 0) //remove pasted text length which didn't have matches
             .flat(1); //flatten array
 
+    //source code comparison
+    sourceCodeComparison(similarityDataArray);
+    console.log('=============================================');
+
     if(similarityDataArray[0].folderName!=null){
         //group students
         const studentWorkGrouped = similarityDataArray.reduce((acc, log) => {
@@ -1486,17 +1547,7 @@ function similarityAnalysis(){
                 acc.push(log);
             }
             return acc;
-        }, []);;
-    }
-
-    let folderNameIsNull = false;
-    for(let i = 0; i < similarityDataArray.length; i++) {
-        folderNameIsNull = similarityDataArray[i].folderName == null;
-        for (let j = i + 1; j < similarityDataArray.length; j++) {
-            if(folderNameIsNull || similarityDataArray[i].folderName!=similarityDataArray[j].folderName){
-
-            }
-        }
+        }, []);
     }
 
     $('#similarity-analysis-modal').modal('show');
@@ -1511,9 +1562,10 @@ function similarityOnHide(){
 
 function resetSimilarityAnalysisResultsDOM(){
     let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane']
-        , ['student-work-tab', 'student-work-pane'], ['source-code-pasted-tab', 'source-code-pasted-pane']];
+        , ['student-work-tab', 'student-work-pane'], ['source-code-pasted-tab', 'source-code-pasted-pane']
+        ,['source-code-comparison-tab', 'source-code-comparison-pane']];
     modalTabs.forEach(tabArr =>{
-        $(`#${tabArr[0]} span`).text(0);
+        $(`#${tabArr[0]} span`).text(0).removeClass("badge-warning").addClass("badge-success");
         $(`#${tabArr[1]}`).addClass('d-none');
         $(`#${tabArr[1]} .list-group`).empty();
         $(`#${tabArr[1]} .tab-content`).empty();
@@ -1529,6 +1581,10 @@ function switchSimilarityListItem(keyEvent) {
     }
 }
 
+function getDisplayTextForDOM( text, length){
+    return text.length > length ? text.substring(0,length)+'\n...\n...\n...' : text;
+}
+
 function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     let newTabListElement = ``;
     let newTabPanelElement = ``;
@@ -1538,25 +1594,64 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     for (let i = 0; i < similarityAnalysisResults[analysisType].length; i++) {
         metricId = similarityAnalysisResults[analysisType][i][0];
         metricValues = similarityAnalysisResults[analysisType][i][1];
-        tabPanelValue = `<div class="card"><div class="card-body"><pre><code class="python hljs">${metricId}</code></pre></div></div>`;
+        if(analysisType=='sourceCodeComparison'){
+            metricValues = Object.values(similarityAnalysisResults[analysisType][i][1]);
+            tabPanelValue = ``;
+        }else{
+            tabPanelValue = `<div class="card"><div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(metricId, 1000)}</code></pre></div></div>`;
+        }
+
 
         for (let j = 0; j < metricValues.length; j++) {
             if(analysisType=='studentsWorkData'){
                 tabPanelValue += `<p><b><h6>${j}.</h6></b> ${metricValues[j].problem} <b> ${metricValues[j].value.toString() +' '+ metricValues[j].unit} </b></p>`;
+            }else if(analysisType=='sourceCodeComparison'){
+                metricValues[j].similarObjects.forEach( (programFile, index) => {
+                    tabPanelValue += `
+                        <div class="row">
+                          <div class="col-12 text-center">
+                            <b>${j}.${index} Similarity ${programFile.similarity*100}%</b>
+                            <br><b>Character length: ${programFile.text.length}</b>
+                          </div>
+                          <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                <p><b>Filename:</b> ${metricValues[j].thisObject.fileName +
+                            (metricValues[j].thisObject.folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].thisObject.folderName)}
+                                    <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].thisObject.programFile)}</p>
+                                </div>
+                                <div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(metricValues[j].thisObject.text,1000)}</code></pre></div>
+                            </div>
+                          </div>
+                          <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                <p><b>Filename:</b> ${programFile.fileName +
+                            (programFile.folderName==null ? '' : '; <br><b>Foldername:</b> '+programFile.folderName)}
+                                    <br><b>Source code file:</b> ${encodeEntitie(programFile.programFile)}</p>
+                                </div>
+                                <div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(programFile.text,1000)}</code></pre></div>
+                            </div>                
+                          </div>
+                        </div>
+                        <hr>
+                        `;
+                })
+
+            }else if(analysisType=='sourceCodePasted' && metricValues[j].hasOwnProperty('programFile')){
+                tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + 
+                (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
+                <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].programFile)}</p>`;
             }else{
-                if(analysisType=='sourceCodePasted' && metricValues[j].hasOwnProperty('programFile')){
-                    tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + 
-                    (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
-                    <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].programFile)}</p>`;
-                }else{
-                    tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
-                }
+                tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
             }
         }
         if(['pastedTexts', 'sourceCodePasted'].includes(analysisType)){
             metricId = metricId.substring(0, 10)+'...';
         }
-        newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId}</a>`;
+        let elementCounter = analysisType=='sourceCodeComparison' ? `<span class="badge badge-pill badge-primary ml-1">${metricValues.reduce((acc,val)=>{return acc+val.similarObjects.length},0)}</span>` : '';
+        newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" 
+                                href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId} ${elementCounter}</a>`;
         newTabPanelElement = `<div class="tab-pane fade ${i == 0 ? 'active show' : ''}" id="similarity-${i.toString() + '-' + analysisType}" role="tabpanel">${tabPanelValue}<hr></div>`;
         $(`#${paneId} .list-group`).append(newTabListElement);
         $(`#${paneId} .tab-content`).append(newTabPanelElement);
@@ -1569,24 +1664,29 @@ function displaySimilarityAnalysisResults(){
         return;
     }
     if(similarityAnalysisResults['duplicateFilesEntries']?.length>0){
-        $('#duplicate-files-tab span').text(similarityAnalysisResults['duplicateFilesEntries'].length);
+        $('#duplicate-files-tab span').text(similarityAnalysisResults['duplicateFilesEntries'].length).removeClass("badge-success").addClass("badge-warning");
         $('#duplicate-files-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('duplicate-files-pane', 'duplicateFilesEntries');
     }
     if(similarityAnalysisResults['pastedTexts']?.length>0){
-        $('#pasted-texts-tab span').text(similarityAnalysisResults['pastedTexts'].length);
+        $('#pasted-texts-tab span').text(similarityAnalysisResults['pastedTexts'].length).removeClass("badge-success").addClass("badge-warning");
         $('#pasted-texts-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('pasted-texts-pane', 'pastedTexts');
     }
     if(similarityAnalysisResults['studentsWorkData']?.length>0){
-        $('#student-work-tab span').text(similarityAnalysisResults['studentsWorkData'].length);
+        $('#student-work-tab span').text(similarityAnalysisResults['studentsWorkData'].length).removeClass("badge-success").addClass("badge-warning");
         $('#student-work-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('student-work-pane', 'studentsWorkData');
     }
     if(similarityAnalysisResults['sourceCodePasted']?.length>0){
-        $('#source-code-pasted-tab span').text(similarityAnalysisResults['sourceCodePasted'].length);
+        $('#source-code-pasted-tab span').text(similarityAnalysisResults['sourceCodePasted'].length).removeClass("badge-success").addClass("badge-warning");
         $('#source-code-pasted-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('source-code-pasted-pane', 'sourceCodePasted');
+    }
+    if(similarityAnalysisResults['sourceCodeComparison']?.length>0){
+        $('#source-code-comparison-tab span').text(similarityAnalysisResults['sourceCodeComparison'].length).removeClass("badge-success").addClass("badge-warning");
+        $('#source-code-comparison-pane').removeClass('d-none');
+        addSimilarityAnalysisResultsDOM('source-code-comparison-pane', 'sourceCodeComparison');
     }
     $(`#modal-main-header-similarity .nav-item:first`).click();
     $(`#similarity-analysis-modal .list-group-item`).keyup(switchSimilarityListItem);

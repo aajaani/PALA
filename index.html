@@ -245,19 +245,19 @@
             </div>
             <div id='modal-main-header-similarity' class="nav nav-pills justify-content-center scroll-auto" role="tablist">
               <a id="duplicate-files-tab" class="nav-item nav-link" data-toggle="tab" href="#duplicate-files-pane" role="tab">
-                Duplicate files<span class="badge badge-pill badge-warning ml-1">0</span>
+                Duplicate files<span class="badge badge-pill badge-success ml-1">0</span>
               </a>
               <a id="pasted-texts-tab" class="nav-item nav-link" data-toggle="tab" href="#pasted-texts-pane" role="tab">
-                Pasted texts<span class="badge badge-pill badge-warning ml-1">0</span>
+                Pasted texts<span class="badge badge-pill badge-success ml-1">0</span>
               </a>
               <a id="student-work-tab" class="nav-item nav-link" data-toggle="tab" href="#student-work-pane" role="tab">
-                Student work analysis<span class="badge badge-pill badge-warning ml-1">0</span>
-              </a>
-              <a id="source-code-tab" class="nav-item nav-link" data-toggle="tab" href="#source-code-pane" role="tab">
-                Source code comparisons TODO<span class="badge badge-pill badge-warning ml-1">0</span>
+                Student work analysis<span class="badge badge-pill badge-success ml-1">0</span>
               </a>
               <a id="source-code-pasted-tab" class="nav-item nav-link" data-toggle="tab" href="#source-code-pasted-pane" role="tab">
-                Source code pasted<span class="badge badge-pill badge-warning ml-1">0</span>
+                Source code pasted<span class="badge badge-pill badge-success ml-1">0</span>
+              </a>
+              <a id="source-code-comparison-tab" class="nav-item nav-link" data-toggle="tab" href="#source-code-comparison-pane" role="tab">
+                Source code comparison<span class="badge badge-pill badge-success ml-1">0</span>
               </a>
             </div>
             <hr>
@@ -309,15 +309,25 @@
                   </div>
                 </div>
               </div>
-              <!-- Source code comparisons -->
-              <div id="source-code-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="source-code-tab">
-                Source code comparisons TODO
-              </div>
-              <!-- Timeline comparisons -->
+              <!-- Source code pasted analysis -->
               <div id="source-code-pasted-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="source-code-pasted-tab">
                 <div class="row similarity-modal-pane">
                   <div class="col-3 modal-sidebar scroll-auto p-0">
                     <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Pasted Text</a>
+                    <div class="list-group" role="tablist">
+                    </div>
+                  </div>
+                  <div class="col-9 modal-main-content scroll-auto">
+                    <div class="tab-content">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Source code comparisons -->
+              <div id="source-code-comparison-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="source-code-comparison-tab">
+                <div class="row similarity-modal-pane">
+                  <div class="col-3 modal-sidebar scroll-auto p-0">
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Folder/logfile</a>
                     <div class="list-group" role="tablist">
                     </div>
                   </div>
@@ -350,6 +360,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <!-- Split.js grid -->
   <script src="https://cdn.jsdelivr.net/npm/split-grid@1.0.11/dist/split-grid.min.js"></script>
+  <!-- string-similarity  -->
+  <script src="https://cdn.jsdelivr.net/npm/string-similarity@4.0.4/umd/string-similarity.min.js"></script>
   <!-- my JavaScript -->
   <script src="src/js/scripts.js"></script>
 </body>
