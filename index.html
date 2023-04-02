@@ -125,6 +125,36 @@
                 Compare analysis results
                 <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
               </button>
+              <a class="badge badge-light" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample"><i class="fa-solid fa-bars"></i></a>
+            </div>
+          </div>
+          <div class="row justify-content-md-center collapse" id="collapseExample">
+            <div class="card card-body">
+
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="pastedTextMinLength-addon">Pasted Text Min. Length:</span>
+                </div>
+                <input type="number" class="form-control" id="pastedTextMinLengthInput" min="10">
+              </div>
+
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="sourceCodeMinLength-addon">Source Code Min. Length:</span>
+                </div>
+                <input type="number" class="form-control" id="sourceCodeMinLengthInput" min="10">
+              </div>
+
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="sourceCodeSimilarityPercent-addon">Source Code Similarity %:</span>
+                </div>
+                <input type="number" class="form-control" id="sourceCodeSimilarityPercentInput" min=0 max="100">
+              </div>
+
+              <div class="col-3">
+                <button type="button" class="btn btn-primary w-100" id="saveSimilarityAnalysisVariables">Save</button>
+              </div>
             </div>
           </div>
         </div>

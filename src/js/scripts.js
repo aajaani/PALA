@@ -14,6 +14,12 @@ var filesParsed=0;
 var similarityDataAllFiles={};
 var similarityAnalysisResults={};
 
+//similarityAnalysis variables
+var pastedTextMinLength=50; //default
+var sourceCodeMinLength=100; //default
+var sourceCodeSimilarityPercent=95; //default
+
+
 var chart;
 
 $(function() {
@@ -36,7 +42,9 @@ $(function() {
       }]
     });
 
-    //$('#similarity-analysis-modal').modal('show');
+    $('#pastedTextMinLengthInput').val(pastedTextMinLength);
+    $('#sourceCodeMinLengthInput').val(sourceCodeMinLength);
+    $('#sourceCodeSimilarityPercentInput').val(sourceCodeSimilarityPercent);
 });
  
 
@@ -58,6 +66,13 @@ function addListeners(){
     $('.btn-replayer-controls').click(replayerAutoPlay);
     $('#download-csv-button').click(getLogfileProgramAnalytics);
     $('#compare-button').click(getSimilarityAnalysisData);
+    $('#saveSimilarityAnalysisVariables').click(saveSimilarityAnalysisVariables);
+}
+
+function saveSimilarityAnalysisVariables(){
+    pastedTextMinLength=parseInt($('#pastedTextMinLengthInput').val());
+    sourceCodeMinLength=parseInt($('#sourceCodeMinLengthInput').val());
+    sourceCodeSimilarityPercent=parseInt($('#sourceCodeSimilarityPercentInput').val());
 }
 
 
@@ -1404,9 +1419,8 @@ function getNearestSourceCodes( sourceCodeData, index){
 
 async function sourceCodeComparison(similarityDataArray) {
     //await new Promise(resolve => setTimeout(resolve));
-    console.log("lets go2");
     const sourceCodeDataReduced = similarityDataArray.reduce((acc, log) => {
-        log.replayerFiles.filter(file => file.codeViewTextString.length > 100)
+        log.replayerFiles.filter(file => file.codeViewTextString.length > sourceCodeMinLength)
             .forEach(file => {
                 acc.push({
                     'entryId': log.entryId, 'fileName': log.fileName, 'text_widget_id': file.text_widget_id
@@ -1422,11 +1436,10 @@ async function sourceCodeComparison(similarityDataArray) {
         let key = '';
         let fileKey = '';
         let comparison = 0;
-        console.log(index1);
         getNearestSourceCodes(sourceCodeDataReduced, index1).forEach((log2) => {
             if (log1.entryId !== log2 && (log1.folderName == null || log1.folderName != log2.folderName)) {
                 comparison = stringSimilarity.compareTwoStrings(log1.text, log2.text);
-                if (comparison > 0.95) {
+                if (comparison > sourceCodeSimilarityPercent/100) {
                     key = log1.folderName == null ? log1.entryId : log1.folderName;
                     fileKey = log1.entryId+'_'+log1.text_widget_id;
                     if (acc.hasOwnProperty(key)) {
@@ -1456,7 +1469,7 @@ function similarityAnalysis(){
     const pastedTextsGrouped = similarityDataArray.reduce((acc, log) => {
         let textLengthKey = '';
         let pastedTextValue={};
-        log.pastedTexts.filter(pastedText => pastedText.text.length>50) //no copied texts with less than 50 chars
+        log.pastedTexts.filter(pastedText => pastedText.text.length>pastedTextMinLength) //no copied texts with less than 50 chars
             .forEach(pastedText => {
                 textLengthKey = pastedText.text.length.toString();
                 pastedTextValue={'entryId': log.entryId, 'fileName': log.fileName, 'folderName': log.folderName};
@@ -1486,7 +1499,7 @@ function similarityAnalysis(){
     //source code x pasted texts grouped by text length
     const sourceCodePastedGrouped = similarityDataArray.reduce((acc, log) => {
         let textLengthKey = '';
-        log.replayerFiles.filter(file => file.codeViewTextString.length>50)
+        log.replayerFiles.filter(file => file.codeViewTextString.length>pastedTextMinLength)
             .forEach(file => {
                 textLengthKey = file.codeViewTextString.length.toString();
                 if(acc.hasOwnProperty(textLengthKey)){
