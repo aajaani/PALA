@@ -18,6 +18,9 @@ var similarityAnalysisResults={};
 var pastedTextMinLength=50; //default
 var sourceCodeMinLength=100; //default
 var sourceCodeSimilarityPercent=95; //default
+var workAnalysisRunCount=0; //default
+var workAnalysisTimeSpentMinutes=15; //default
+var workAnalysisSize=100; //default
 
 
 var chart;
@@ -45,6 +48,9 @@ $(function() {
     $('#pastedTextMinLengthInput').val(pastedTextMinLength);
     $('#sourceCodeMinLengthInput').val(sourceCodeMinLength);
     $('#sourceCodeSimilarityPercentInput').val(sourceCodeSimilarityPercent);
+    $('#workAnalysisRunCountInput').val(workAnalysisRunCount);
+    $('#workAnalysisTimeSpentMinutesInput').val(workAnalysisTimeSpentMinutes);
+    $('#workAnalysisSizeInput').val(workAnalysisSize);
 });
  
 
@@ -73,6 +79,9 @@ function saveSimilarityAnalysisVariables(){
     pastedTextMinLength=parseInt($('#pastedTextMinLengthInput').val());
     sourceCodeMinLength=parseInt($('#sourceCodeMinLengthInput').val());
     sourceCodeSimilarityPercent=parseInt($('#sourceCodeSimilarityPercentInput').val());
+    workAnalysisRunCount=parseInt($('#workAnalysisRunCountInput').val());
+    workAnalysisTimeSpentMinutes=parseInt($('#workAnalysisTimeSpentMinutesInput').val());
+    workAnalysisSize=parseInt($('#workAnalysisSizeInput').val());
 }
 
 
@@ -1547,14 +1556,14 @@ function similarityAnalysis(){
 
         //student based analysis
         similarityAnalysisResults['studentsWorkData'] = Object.entries(studentWorkGrouped).reduce((acc, log) => {
-            if(log[1][2].value>=100){
+            if(log[1][2].value>=workAnalysisSize){
                 log[1].splice(2,1);
             }
-            if(log[1][1].value>=15){
+            if(log[1][1].value>=workAnalysisTimeSpentMinutes){
                 log[1].splice(1,1);
             }
 
-            if(log[1][0].value!=0){
+            if(log[1][0].value>workAnalysisRunCount){
                 log[1].splice(0,1);
             }
             if(log[1].length>0){

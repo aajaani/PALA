@@ -152,6 +152,27 @@
                 <input type="number" class="form-control" id="sourceCodeSimilarityPercentInput" min=0 max="100">
               </div>
 
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="workAnalysisRunCount-addon">Run Count is equal or less than:</span>
+                </div>
+                <input type="number" class="form-control" id="workAnalysisRunCountInput" min=0>
+              </div>
+
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="workAnalysisTimeSpentMinutes-addon">Total time working is less than (minutes):</span>
+                </div>
+                <input type="number" class="form-control" id="workAnalysisTimeSpentMinutesInput" min=0>
+              </div>
+
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
+                  <span class="input-group-text" id="workAnalysisSize-addon">Total logfile size less than (KB):</span>
+                </div>
+                <input type="number" class="form-control" id="workAnalysisSizeInput" min=0>
+              </div>
+
               <div class="col-3">
                 <button type="button" class="btn btn-primary w-100" id="saveSimilarityAnalysisVariables">Save</button>
               </div>
