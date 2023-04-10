@@ -1440,18 +1440,20 @@ async function sourceCodeComparison(similarityDataArray) {
             if (log1.entryId !== log2 && (log1.folderName == null || log1.folderName != log2.folderName)) {
                 comparison = stringSimilarity.compareTwoStrings(log1.text, log2.text);
                 if (comparison > sourceCodeSimilarityPercent/100) {
-                    key = log1.folderName == null ? log1.entryId : log1.folderName;
-                    fileKey = log1.entryId+'_'+log1.text_widget_id;
-                    if (acc.hasOwnProperty(key)) {
-                        if(acc[key].hasOwnProperty(fileKey)){
-                            acc[key][fileKey]['similarObjects'].push({...log2, similarity: comparison});
-                        }else{
+                    if(log1.text.slice(0,13) != 'def foo(bar):'){ //ignore thonny template code
+                        key = log1.folderName == null ? log1.entryId : log1.folderName;
+                        fileKey = log1.entryId+'_'+log1.text_widget_id;
+                        if (acc.hasOwnProperty(key)) {
+                            if(acc[key].hasOwnProperty(fileKey)){
+                                acc[key][fileKey]['similarObjects'].push({...log2, similarity: comparison});
+                            }else{
+                                acc[key][fileKey] = {'thisObject': log1, 'similarObjects': [{...log2, similarity: comparison}]};
+                            }
+
+                        } else {
+                            acc[key] = {};
                             acc[key][fileKey] = {'thisObject': log1, 'similarObjects': [{...log2, similarity: comparison}]};
                         }
-                        
-                    } else {
-                        acc[key] = {};
-                        acc[key][fileKey] = {'thisObject': log1, 'similarObjects': [{...log2, similarity: comparison}]};
                     }
                 }
             }
@@ -1527,7 +1529,6 @@ function similarityAnalysis(){
 
     //source code comparison
     sourceCodeComparison(similarityDataArray);
-    console.log('=============================================');
 
     if(similarityDataArray[0].folderName!=null){
         //group students
