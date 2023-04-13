@@ -448,7 +448,6 @@ function handleObject(jsonLog, file, entryId, path, isZipObject, type){
     if (type==="analyse"){
         analyse( jsonLog, file, entryId, path, isZipObject);
     }else if(["replayer", "textGraph", "csvAnalytics","similarityAnalysis"].includes(type)){
-        jsonLog
         parseLogFile(jsonLog, type, entryId);
     }
 }
@@ -859,9 +858,9 @@ function readAnalysedFile(){
     }
     let isZipObject=files[entryId].type=="zip";
     if($(this)[0].attributes['data-target'].value=='#replayerModal'){
-        readObject(files[entryId].file, '', "replayer", '', isZipObject);
+        readObject(files[entryId].file, entryId, "replayer", '', isZipObject);
     }else if($(this)[0].attributes['data-target'].value=='#textGraphModal'){
-        readObject(files[entryId].file, '', "textGraph", '', isZipObject);
+        readObject(files[entryId].file, entryId, "textGraph", '', isZipObject);
     }
 }
 
