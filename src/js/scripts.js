@@ -21,6 +21,7 @@ var sourceCodeSimilarityPercent=95; //default
 var workAnalysisRunCount=0; //default
 var workAnalysisTimeSpentMinutes=15; //default
 var workAnalysisSize=100; //default
+var pastedTextPercent=99; //default
 
 
 var chart;
@@ -51,6 +52,7 @@ $(function() {
     $('#workAnalysisRunCountInput').val(workAnalysisRunCount);
     $('#workAnalysisTimeSpentMinutesInput').val(workAnalysisTimeSpentMinutes);
     $('#workAnalysisSizeInput').val(workAnalysisSize);
+    $('#pastedTextPercentInput').val(pastedTextPercent);
 
     $('#saveSimilarityAnalysisVariables').tooltip({
         title: 'Saved',
@@ -88,6 +90,7 @@ function saveSimilarityAnalysisVariables(){
     workAnalysisRunCount=parseInt($('#workAnalysisRunCountInput').val());
     workAnalysisTimeSpentMinutes=parseInt($('#workAnalysisTimeSpentMinutesInput').val());
     workAnalysisSize=parseInt($('#workAnalysisSizeInput').val());
+    pastedTextPercent=parseInt($('#pastedTextPercentInput').val());
 
     $('#saveSimilarityAnalysisVariables').tooltip('show');
     setTimeout(function() {
@@ -975,6 +978,14 @@ function parseLogFile(jsonLog, type, entryId){
                 }
             }
         }else if(type=="similarityAnalysis"){
+            if (['TextInsert'].includes(jsonLog[i].sequence) && jsonLog[i].text_widget_class.includes('CodeViewText')){
+                let activeIndex=getActiveIndex(replayerFiles);
+                if(i!=jsonLog.length-1 && jsonLog[i+1].sequence=='<<Paste>>'){
+                    replayerFiles[activeIndex].pastedTextLength+=jsonLog[i].text.length;
+                }else{
+                    replayerFiles[activeIndex].manualTextEditLength+=jsonLog[i].text.length;
+                }
+            }
             if(jsonLog[i].sequence==='<<Paste>>' &&
                 jsonLog[i].text_widget_class!=null &&
                 jsonLog[i].text_widget_class.includes("CodeViewText")){
@@ -1004,7 +1015,7 @@ function parseLogFile(jsonLog, type, entryId){
         similarityDataAllFiles[entryId]={'jsonLog': jsonLog
                                 , 'entryId': entryId
                                 , 'fileName': deepCopy(files[entryId].fileName)
-                                , 'folderName': deepCopy(files[entryId].folderName)
+                                , 'folderName': files[entryId].folderName!=null ? deepCopy(files[entryId].folderName) : null
                                 , 'pastedTexts': pastedTexts
                                 , "replayerFiles": replayerFiles
                                 , "file": deepCopy(files[entryId])};
@@ -1138,7 +1149,9 @@ function addLogEvent(replayerFiles, shellText, logEvent){
             , "hasRun": false
             , "charCountAtFirstRun":0
             , "timeAtStartProgramOpen" : new Date(logEvent.time)
-            , "timeAtStartProgramRun" : null});
+            , "timeAtStartProgramRun" : null
+            , "pastedTextLength":0
+            , "manualTextEditLength":0});
 
     }else if (logEvent.sequence=='SaveAs'){
         let filenameList=logEvent.filename.split('\\');
@@ -1439,7 +1452,7 @@ function getNearestSourceCodes( sourceCodeData, index){
 async function sourceCodeComparison(similarityDataArray) {
     //await new Promise(resolve => setTimeout(resolve));
     const sourceCodeDataReduced = similarityDataArray.reduce((acc, log) => {
-        log.replayerFiles.filter(file => file.codeViewTextString.length > sourceCodeMinLength)
+        log.replayerFiles.filter(file => file.codeViewTextString.length > sourceCodeMinLength && file.filename!='<untitled>')
             .forEach(file => {
                 acc.push({
                     'entryId': log.entryId, 'fileName': log.fileName, 'text_widget_id': file.text_widget_id
@@ -1448,7 +1461,6 @@ async function sourceCodeComparison(similarityDataArray) {
             });
         return acc;
     }, []).sort((a, b) => a.text.length - b.text.length);
-
 
 
     const sourceCodeComparison = sourceCodeDataReduced.reduce((acc, log1, index1) => {
@@ -1485,6 +1497,29 @@ async function sourceCodeComparison(similarityDataArray) {
 
 function similarityAnalysis(){
     let similarityDataArray = Object.values(similarityDataAllFiles);
+
+    //Pasted texts vs work %
+    similarityAnalysisResults['pastedTextsPercentage'] =
+        Object.entries(
+            similarityDataArray.reduce((acc, log) => {
+            log.replayerFiles.filter(file => file.pastedTextLength > pastedTextMinLength
+                && file.filename!='<untitled>'
+                && file.pastedTextLength/(file.pastedTextLength+file.manualTextEditLength)>pastedTextPercent/100)
+                .forEach(file => {
+                    key = log.folderName == null ? log.entryId : log.folderName;
+                    fileKey = log.entryId+'_'+file.text_widget_id;
+                    if (!(acc.hasOwnProperty(key))) {
+                        acc[key] = {};
+                    }
+                    acc[key][fileKey] = {
+                        'entryId': log.entryId, 'fileName': log.fileName, 'text_widget_id': file.text_widget_id
+                        , 'folderName': log.folderName, 'programFile': file.filename, 'text': file.codeViewTextString
+                        , 'pastedTextLength': file.pastedTextLength, 'manualTextEditLength': file.manualTextEditLength
+                    };
+                });
+            return acc;
+            }, {})
+        );
 
     //get pasted text grouped by text length
     const pastedTextsGrouped = similarityDataArray.reduce((acc, log) => {
@@ -1596,7 +1631,7 @@ function similarityOnHide(){
 function resetSimilarityAnalysisResultsDOM(){
     let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane']
         , ['student-work-tab', 'student-work-pane'], ['source-code-pasted-tab', 'source-code-pasted-pane']
-        ,['source-code-comparison-tab', 'source-code-comparison-pane']];
+        ,['source-code-comparison-tab', 'source-code-comparison-pane'], ['pasted-texts-percentage-tab', 'pasted-texts-percentage-pane']];
     modalTabs.forEach(tabArr =>{
         $(`#${tabArr[0]} span`).text(0).removeClass("badge-warning").addClass("badge-success");
         $(`#${tabArr[1]}`).addClass('d-none');
@@ -1627,7 +1662,7 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     for (let i = 0; i < similarityAnalysisResults[analysisType].length; i++) {
         metricId = similarityAnalysisResults[analysisType][i][0];
         metricValues = similarityAnalysisResults[analysisType][i][1];
-        if(analysisType=='sourceCodeComparison'){
+        if(['sourceCodeComparison', 'pastedTextsPercentage'].includes(analysisType)){
             metricValues = Object.values(similarityAnalysisResults[analysisType][i][1]);
             tabPanelValue = ``;
         }else{
@@ -1638,6 +1673,25 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
         for (let j = 0; j < metricValues.length; j++) {
             if(analysisType=='studentsWorkData'){
                 tabPanelValue += `<p><b><h6>${j}.</h6></b> ${metricValues[j].problem} <b> ${metricValues[j].value.toString() +' '+ metricValues[j].unit} </b></p>`;
+            }else if(analysisType=='pastedTextsPercentage'){
+                tabPanelValue += `
+                    <div class="row">
+                      <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                            <b>${j}.</b>
+                            <br><b>Pasted text length: ${metricValues[j].pastedTextLength}</b>
+                            <br><b>Typed text length: ${metricValues[j].manualTextEditLength}</b>
+                            <p><b>Filename:</b> ${metricValues[j].fileName +
+                (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
+                                <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].programFile)}</p>
+                            </div>
+                            <div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(metricValues[j].text,1000)}</code></pre></div>
+                        </div>                
+                      </div>
+                    </div>
+                    <hr>
+                    `;
             }else if(analysisType=='sourceCodeComparison'){
                 metricValues[j].similarObjects.forEach( (programFile, index) => {
                     tabPanelValue += `
@@ -1669,8 +1723,7 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
                         </div>
                         <hr>
                         `;
-                })
-
+                });
             }else if(analysisType=='sourceCodePasted' && metricValues[j].hasOwnProperty('programFile')){
                 tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + 
                 (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
@@ -1682,7 +1735,15 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
         if(['pastedTexts', 'sourceCodePasted'].includes(analysisType)){
             metricId = metricId.substring(0, 10)+'...';
         }
-        let elementCounter = analysisType=='sourceCodeComparison' ? `<span class="badge badge-pill badge-primary ml-1">${metricValues.reduce((acc,val)=>{return acc+val.similarObjects.length},0)}</span>` : '';
+        let elementCounter = '';
+        switch (analysisType) {
+            case 'sourceCodeComparison':
+                elementCounter = `<span class="badge badge-pill badge-primary ml-1">${metricValues.reduce((acc,val)=>{return acc+val.similarObjects.length},0)}</span>`;
+                break;
+            case 'pastedTextsPercentage':
+                elementCounter = `<span class="badge badge-pill badge-primary ml-1">${metricValues.length}</span>`;
+                break;
+        }
         newTabListElement = `<a class="list-group-item list-group-item-action ${i == 0 ? 'active' : ''}" data-toggle="list" 
                                 href="#similarity-${i.toString() + '-' + analysisType}" role="tab">${metricId} ${elementCounter}</a>`;
         newTabPanelElement = `<div class="tab-pane fade ${i == 0 ? 'active show' : ''}" id="similarity-${i.toString() + '-' + analysisType}" role="tabpanel">${tabPanelValue}<hr></div>`;
@@ -1720,6 +1781,11 @@ function displaySimilarityAnalysisResults(){
         $('#source-code-comparison-tab span').text(similarityAnalysisResults['sourceCodeComparison'].length).removeClass("badge-success").addClass("badge-warning");
         $('#source-code-comparison-pane').removeClass('d-none');
         addSimilarityAnalysisResultsDOM('source-code-comparison-pane', 'sourceCodeComparison');
+    }
+    if(similarityAnalysisResults['pastedTextsPercentage']?.length>0){
+        $('#pasted-texts-percentage-tab span').text(similarityAnalysisResults['pastedTextsPercentage'].length).removeClass("badge-success").addClass("badge-warning");
+        $('#pasted-texts-percentage-pane').removeClass('d-none');
+        addSimilarityAnalysisResultsDOM('pasted-texts-percentage-pane', 'pastedTextsPercentage');
     }
     $(`#modal-main-header-similarity .nav-item:first`).click();
     $(`#similarity-analysis-modal .list-group-item`).keyup(switchSimilarityListItem);

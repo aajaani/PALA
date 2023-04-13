@@ -140,6 +140,13 @@
 
               <div class="input-group input-group-sm mb-3">
                 <div class="input-group-prepend">
+                  <span class="input-group-text" id="pastedTextPercent-addon">Pasted to typed texts %:</span>
+                </div>
+                <input type="number" class="form-control" id="pastedTextPercentInput" min="0" max="100">
+              </div>
+
+              <div class="input-group input-group-sm mb-3">
+                <div class="input-group-prepend">
                   <span class="input-group-text" id="sourceCodeMinLength-addon">Source Code Min. Length:</span>
                 </div>
                 <input type="number" class="form-control" id="sourceCodeMinLengthInput" min="10">
@@ -298,11 +305,14 @@
               <a id="duplicate-files-tab" class="nav-item nav-link" data-toggle="tab" href="#duplicate-files-pane" role="tab">
                 Duplicate files<span class="badge badge-pill badge-success ml-1">0</span>
               </a>
-              <a id="pasted-texts-tab" class="nav-item nav-link" data-toggle="tab" href="#pasted-texts-pane" role="tab">
-                Pasted texts<span class="badge badge-pill badge-success ml-1">0</span>
-              </a>
               <a id="student-work-tab" class="nav-item nav-link" data-toggle="tab" href="#student-work-pane" role="tab">
                 Student work analysis<span class="badge badge-pill badge-success ml-1">0</span>
+              </a>
+              <a id="pasted-texts-percentage-tab" class="nav-item nav-link" data-toggle="tab" href="#pasted-texts-percentage-pane" role="tab">
+                Pasted to typed texts %<span class="badge badge-pill badge-success ml-1">0</span>
+              </a>
+              <a id="pasted-texts-tab" class="nav-item nav-link" data-toggle="tab" href="#pasted-texts-pane" role="tab">
+                Identical pasted texts<span class="badge badge-pill badge-success ml-1">0</span>
               </a>
               <a id="source-code-pasted-tab" class="nav-item nav-link" data-toggle="tab" href="#source-code-pasted-pane" role="tab">
                 Source code pasted<span class="badge badge-pill badge-success ml-1">0</span>
@@ -332,11 +342,11 @@
                   </div>
                 </div>
               </div>
-              <!-- Pasted texts -->
-              <div id="pasted-texts-pane" class="tab-pane fade d-none" role="tabpanel" aria-labelledby="pasted-texts-tab">
+              <!-- Student work analysis -->
+              <div id="student-work-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="student-work-tab">
                 <div class="row similarity-modal-pane">
                   <div class="col-3 modal-sidebar scroll-auto p-0">
-                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Pasted Text</a>
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Student folder</a>
                     <div class="list-group" role="tablist">
                     </div>
                   </div>
@@ -346,11 +356,25 @@
                   </div>
                 </div>
               </div>
-              <!-- Student work analysis -->
-              <div id="student-work-pane" class="tab-pane fade" role="tabpanel" aria-labelledby="student-work-tab">
+              <!-- Pasted texts vs work percentage -->
+              <div id="pasted-texts-percentage-pane" class="tab-pane fade d-none" role="tabpanel" aria-labelledby="pasted-texts-percentage-tab">
                 <div class="row similarity-modal-pane">
                   <div class="col-3 modal-sidebar scroll-auto p-0">
-                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Student folder</a>
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Folder/logfile</a>
+                    <div class="list-group" role="tablist">
+                    </div>
+                  </div>
+                  <div class="col-9 modal-main-content scroll-auto">
+                    <div class="tab-content">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Identical pasted texts -->
+              <div id="pasted-texts-pane" class="tab-pane fade d-none" role="tabpanel" aria-labelledby="pasted-texts-tab">
+                <div class="row similarity-modal-pane">
+                  <div class="col-3 modal-sidebar scroll-auto p-0">
+                    <a class="list-group-item list-group-item-action list-group-item-dark font-weight-bold">Pasted Text</a>
                     <div class="list-group" role="tablist">
                     </div>
                   </div>
