@@ -1422,6 +1422,9 @@ function resetReplayerPlayBtn(){
     }
 }
 
+/** Starts similarity analysis. Passing Files for analysis.
+ *
+ */
 function getSimilarityAnalysisData(){
     resetSimilarityAnalysisResultsDOM();
     $('#compare-button').prop('disabled', true);
@@ -1443,13 +1446,23 @@ function getSimilarityAnalysisData(){
     similarityAnalysisResults['duplicateFilesEntries']=Object.entries(similarityAnalysisResults['duplicateFiles']);
 }
 
+/**
+ *
+ * @param sourceCodeData
+ * @param index - current index of sourceCodeData
+ * @returns {Subarray of sourceCodeData}
+ */
 function getNearestSourceCodes( sourceCodeData, index){
     const scale = Math.min(Math.floor(10000/sourceCodeData.length),5);
     return sourceCodeData.slice(Math.max(index - scale - Math.max(scale - (sourceCodeData.length - index - 1),0), 0)
                                 , Math.min(index + scale + Math.max(scale-index,0), sourceCodeData.length))
 }
 
-async function sourceCodeComparison(similarityDataArray) {
+/** Performs source code comparison on program files.
+ *
+ * @param similarityDataArray
+ */
+function sourceCodeComparison(similarityDataArray) {
     //await new Promise(resolve => setTimeout(resolve));
     const sourceCodeDataReduced = similarityDataArray.reduce((acc, log) => {
         log.replayerFiles.filter(file => file.codeViewTextString.length > sourceCodeMinLength && file.filename!='<untitled>')
@@ -1495,6 +1508,9 @@ async function sourceCodeComparison(similarityDataArray) {
     similarityAnalysisResults['sourceCodeComparison'] = Object.entries(sourceCodeComparison);
 }
 
+/** Similarity analysis is performed on analysed files.
+ *
+ */
 function similarityAnalysis(){
     let similarityDataArray = Object.values(similarityDataAllFiles);
 
@@ -1622,12 +1638,18 @@ function similarityAnalysis(){
     displaySimilarityAnalysisResults();
 }
 
+/** resets similarity analysis results DOM and enables compare button
+ *
+ */
 function similarityOnHide(){
     resetSimilarityAnalysisResultsDOM();
     $('#compare-button').prop('disabled', false);
     $('#compare-button span').addClass('d-none');
 }
 
+/** resets similarity analysis results DOM
+ *
+ */
 function resetSimilarityAnalysisResultsDOM(){
     let modalTabs = [['duplicate-files-tab', 'duplicate-files-pane'], ['pasted-texts-tab', 'pasted-texts-pane']
         , ['student-work-tab', 'student-work-pane'], ['source-code-pasted-tab', 'source-code-pasted-pane']
@@ -1649,10 +1671,21 @@ function switchSimilarityListItem(keyEvent) {
     }
 }
 
+/** If text is longer than length, it will be cut and '...' will be added
+ *
+ * @param text
+ * @param length
+ * @returns {string|*}
+ */
 function getDisplayTextForDOM( text, length){
     return text.length > length ? text.substring(0,length)+'\n...\n...\n...' : text;
 }
 
+/**adds similarity analysis results DOM
+ *
+ * @param paneId
+ * @param analysisType
+ */
 function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     let newTabListElement = ``;
     let newTabPanelElement = ``;
@@ -1752,6 +1785,9 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
     }
 }
 
+/** If any similarity analysis results are present, then display them in the DOM.
+ *
+ */
 function displaySimilarityAnalysisResults(){
     if(Object.keys(similarityAnalysisResults).length==0){
         $('#similarity-summary-pane').addClass('show active');
