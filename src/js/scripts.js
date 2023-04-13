@@ -51,6 +51,12 @@ $(function() {
     $('#workAnalysisRunCountInput').val(workAnalysisRunCount);
     $('#workAnalysisTimeSpentMinutesInput').val(workAnalysisTimeSpentMinutes);
     $('#workAnalysisSizeInput').val(workAnalysisSize);
+
+    $('#saveSimilarityAnalysisVariables').tooltip({
+        title: 'Saved',
+        placement: 'right',
+        trigger: 'manual'
+    });
 });
  
 
@@ -82,6 +88,11 @@ function saveSimilarityAnalysisVariables(){
     workAnalysisRunCount=parseInt($('#workAnalysisRunCountInput').val());
     workAnalysisTimeSpentMinutes=parseInt($('#workAnalysisTimeSpentMinutesInput').val());
     workAnalysisSize=parseInt($('#workAnalysisSizeInput').val());
+
+    $('#saveSimilarityAnalysisVariables').tooltip('show');
+    setTimeout(function() {
+        $('#saveSimilarityAnalysisVariables').tooltip('hide');
+    }, 1000);
 }
 
 
