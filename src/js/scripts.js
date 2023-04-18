@@ -1435,7 +1435,7 @@ function getSimilarityAnalysisData(){
     similarityAnalysisResults['duplicateFiles']={}
     for (let file in files ){
         //Checking for duplicate files using file checksum
-        duplicateFiles = filesArr.filter(i=>i.file._data.crc32==files[file].file._data.crc32
+        duplicateFiles = filesArr.filter(i=>i.file?._data?.crc32 !=null && i.file._data.crc32==files[file].file._data.crc32
                                                                 && (i.folderName==null || i.folderName!=files[file].folderName));
         if(duplicateFiles.length>1 && !(similarityAnalysisResults['duplicateFiles'].hasOwnProperty(files[file].file._data.crc32))){
             similarityAnalysisResults['duplicateFiles'][files[file].file._data.crc32]=duplicateFiles;
