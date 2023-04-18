@@ -403,6 +403,13 @@ function storeFileInfo(entryId, file, type) {
     }
 }
 
+function getJsonLog(text) {
+    if(text.startsWith("{")){
+        return JSON.parse(`[${text.slice(0, text.lastIndexOf("}")+1)}]`);
+    }
+    return JSON.parse(text);
+}
+
 /**
  * @param {*} file - file object
  * @param {String} entryId - id of file analysed
@@ -416,7 +423,7 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
         file.async("string")
         .then(function success(text) {
             try {
-                handleObject(JSON.parse(text), file, entryId, path, isZipObject, type);
+                handleObject(getJsonLog(text), file, entryId, path, isZipObject, type);
             } catch (e){
                 console.log(e);
                 if(type=="analyse"){
@@ -433,7 +440,7 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
             reader.addEventListener('load', (event) => {
                 const text = event.target.result;
                 try{
-                    handleObject(JSON.parse(text), file, entryId, path, isZipObject, type);
+                    handleObject(getJsonLog(text), file, entryId, path, isZipObject, type);
                 } catch (e){ 
                     console.log(e);
                     if(type=="analyse"){
@@ -524,7 +531,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             let date=getDateAsLocaleString(jsonLog[i].time)
             errors.texts[date]=jsonLog[i].text;
         }
-        if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Debug')){
+        if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Debug')
+            || jsonLog[i].sequence==='ShellCommand' && jsonLog[i].command_text.includes('%Debug')){
             debugCount++;
         }
         if(jsonLog[i].sequence==='<<Paste>>'
@@ -1142,17 +1150,22 @@ function addLogEvent(replayerFiles, shellText, logEvent){
             let filenameList=logEvent.filename.split('\\');
             filename=filenameList[filenameList.length-1];
         }
-        replayerFiles.push({"active":true
-            , "text_widget_id":logEvent.text_widget_id
-            , "filename":filename
-            , "codeViewText":[]
-            , "hasRun": false
-            , "charCountAtFirstRun":0
-            , "timeAtStartProgramOpen" : new Date(logEvent.time)
-            , "timeAtStartProgramRun" : null
-            , "pastedTextLength":0
-            , "manualTextEditLength":0});
 
+        if(indexOfFile>=0){
+            replayerFiles[indexOfFile].active=true;
+            replayerFiles[indexOfFile].filename=filename;
+        }else{
+            replayerFiles.push({"active":true
+                , "text_widget_id":logEvent.text_widget_id
+                , "filename":filename
+                , "codeViewText":[]
+                , "hasRun": false
+                , "charCountAtFirstRun":0
+                , "timeAtStartProgramOpen" : new Date(logEvent.time)
+                , "timeAtStartProgramRun" : null
+                , "pastedTextLength":0
+                , "manualTextEditLength":0});
+        }
     }else if (logEvent.sequence=='SaveAs'){
         let filenameList=logEvent.filename.split('\\');
         let filename=filenameList[filenameList.length-1];
