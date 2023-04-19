@@ -243,11 +243,11 @@ function switchListItem(keyEvent){
             if($('#replayerModal').hasClass('show')){
                 replayerOnHidden();
                 $('#modal-sidebar-event-list').scrollTop(0);
-                readObject(files[entryId].file, '', "replayer", '', isZipObject);
+                readObject(files[entryId].file, entryId, "replayer", '', isZipObject);
             }else if($('#textGraphModal').hasClass('show')){
                 chart.destroy();
                 textGraphDataLog={};
-                readObject(files[entryId].file, '', "textGraph", '', isZipObject);
+                readObject(files[entryId].file, entryId, "textGraph", '', isZipObject);
             }
         }
     }
