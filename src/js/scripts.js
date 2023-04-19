@@ -539,9 +539,9 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             && jsonLog[i].text_widget_class!=null
             && jsonLog[i].text_widget_class.includes("CodeViewText")){
             pasted.total++;
-            if(jsonLog[i-1].text!=null){
-                pasted.characterCount+=jsonLog[i-1].text.length;
-                pasted.texts[getDateAsLocaleString(jsonLog[i-1].time)]='<pre>'.concat(jsonLog[i-1].text,'</pre>');
+            if(jsonLog[i+1].text!=null){
+                pasted.characterCount+=jsonLog[i+1].text.length;
+                pasted.texts[getDateAsLocaleString(jsonLog[i+1].time)]='<pre>'.concat(jsonLog[i+1].text,'</pre>');
             }
         }
         if(jsonLog[i].sequence==='SaveAs'){
@@ -988,7 +988,7 @@ function parseLogFile(jsonLog, type, entryId){
         }else if(type=="similarityAnalysis"){
             if (['TextInsert'].includes(jsonLog[i].sequence) && jsonLog[i].text_widget_class.includes('CodeViewText')){
                 let activeIndex=getActiveIndex(replayerFiles);
-                if(i!=jsonLog.length-1 && jsonLog[i+1].sequence=='<<Paste>>'){
+                if(i!=0 && jsonLog[i-1].sequence=='<<Paste>>'){
                     replayerFiles[activeIndex].pastedTextLength+=jsonLog[i].text.length;
                 }else{
                     replayerFiles[activeIndex].manualTextEditLength+=jsonLog[i].text.length;
@@ -997,8 +997,8 @@ function parseLogFile(jsonLog, type, entryId){
             if(jsonLog[i].sequence==='<<Paste>>' &&
                 jsonLog[i].text_widget_class!=null &&
                 jsonLog[i].text_widget_class.includes("CodeViewText")){
-                if(jsonLog[i-1].text!=null){
-                    pastedTexts.push({'time': jsonLog[i-1].time, 'text': jsonLog[i-1].text});
+                if(jsonLog[i+1].text!=null){
+                    pastedTexts.push({'time': jsonLog[i+1].time, 'text': jsonLog[i+1].text});
                 }
             }
         }
