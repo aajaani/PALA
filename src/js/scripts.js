@@ -935,7 +935,7 @@ function parseLogFile(jsonLog, type, entryId){
 
     for(var i=0;i<jsonLog.length;i++){
 
-        [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, jsonLog[i]);
+        [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, jsonLog, i);
 
         if(type=="replayer"){
             if(i%logCacheInterval==0){
@@ -1131,7 +1131,8 @@ function getNewChart(index){
  * @param {*} logEvent - current jsonlog event object
  * @returns edited replayerFiles, shellText
  */
-function addLogEvent(replayerFiles, shellText, logEvent){
+function addLogEvent(replayerFiles, shellText, jsonLog, index){
+    let logEvent = jsonLog[index];
     let activeIndex=getActiveIndex(replayerFiles);
     let indexOfFile=-2;
     if (logEvent.text_widget_id!=null && logEvent.sequence!='EditorTextCreated' && logEvent.text_widget_class!='ShellText'){
@@ -1177,10 +1178,14 @@ function addLogEvent(replayerFiles, shellText, logEvent){
         }
     }else if (logEvent.sequence=='TextInsert' || logEvent.sequence=='TextDelete'){
         if(logEvent.text_widget_class.includes('CodeViewText')){
-            if(activeIndex!=-1){
-                replayerFiles[activeIndex].codeViewText=addChangesToText(replayerFiles[activeIndex].codeViewText,logEvent);
+            if(jsonLog[index-1].sequence=='Open'){
+                replayerFiles[activeIndex].codeViewText=addChangesToText([],logEvent);
             }else{
-                console.log("Error replayer no active files.\n"+replayerFiles);
+                if(activeIndex!=-1){
+                    replayerFiles[activeIndex].codeViewText=addChangesToText(replayerFiles[activeIndex].codeViewText,logEvent);
+                }else{
+                    console.log("Error replayer no active files.\n"+replayerFiles);
+                }
             }
         }else if(logEvent.text_widget_class=='ShellText'){
             shellText=addChangesToText(shellText,logEvent);
@@ -1334,7 +1339,7 @@ function handleEventListFocus(value){
     
     var ideIndex=0;
     for(var i=nearestCacheIndex+1;i<=jsonLogIndex;i++){
-        [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, modalJsonLog[i]);
+        [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, modalJsonLog, i);
         
          if(modalJsonLog[jsonLogIndex].text_widget_class!=null
              && modalJsonLog[jsonLogIndex].text_widget_class.includes('CodeViewText')){
