@@ -397,7 +397,10 @@ function parseZipFile(entryId, zipFile, path=''){
 }
 
 
-function storeFileInfo(entryId, file, type) {
+function storeFileInfo(entryId, file, type, text) {
+    if(!(file.hasOwnProperty("_data"))){
+        file._data = { crc32: CRC32.str(text)};
+    }
     if(!(entryId in files)){
         files[entryId] = {"file": file, "type": type, "entryId": entryId};
     }
@@ -419,10 +422,10 @@ function getJsonLog(text) {
  */
 function readObject(file, entryId, type="analyse", path='', isZipObject = false){
     if (isZipObject){
-        storeFileInfo(entryId, file, "zip");
         file.async("string")
         .then(function success(text) {
             try {
+                storeFileInfo(entryId, file, "zip", text);
                 handleObject(getJsonLog(text), file, entryId, path, isZipObject, type);
             } catch (e){
                 console.log(e);
@@ -434,12 +437,12 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
         });
     }else{  //is not zip object
         if(file.type==='text/plain'){
-            storeFileInfo(entryId, file, "text");
             const reader = new FileReader();
             reader.readAsText(file);
             reader.addEventListener('load', (event) => {
                 const text = event.target.result;
                 try{
+                    storeFileInfo(entryId, file, "text", text);
                     handleObject(getJsonLog(text), file, entryId, path, isZipObject, type);
                 } catch (e){ 
                     console.log(e);
