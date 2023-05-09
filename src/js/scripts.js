@@ -1623,11 +1623,11 @@ function similarityAnalysis(){
         //group students
         const studentWorkGrouped = similarityDataArray.reduce((acc, log) => {
             if(acc.hasOwnProperty(log.folderName)){
-                acc[log.folderName][0].value += log.file.fileAnalysisResults["run count"];
+                acc[log.folderName][0].value += log.file.fileAnalysisResults["run count"] + log.file.fileAnalysisResults["debug count"];
                 acc[log.folderName][1].value += getDateDiffInMinutes(new Date(log.jsonLog[0].time),new Date(log.jsonLog[log.jsonLog.length-1].time));
                 acc[log.folderName][2].value += log.file.fileSize;
             }else{
-                acc[log.folderName]=[{"problem":"Total run count is ", "value": log.file.fileAnalysisResults["run count"], "unit":""}
+                acc[log.folderName]=[{"problem":"Total run count is ", "value": log.file.fileAnalysisResults["run count"] + log.file.fileAnalysisResults["debug count"], "unit":""}
                     , {"problem":"Total time spent working is ", "value": getDateDiffInMinutes(new Date(log.jsonLog[0].time),new Date(log.jsonLog[log.jsonLog.length-1].time)), "unit":"minutes"}
                     , {"problem":"Incomplete logfiles submitted, total of", "value": log.file.fileSize, "unit":"KB"}];
             }
