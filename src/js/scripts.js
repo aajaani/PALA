@@ -17,11 +17,11 @@ var similarityAnalysisResults={};
 //similarityAnalysis variables
 var pastedTextMinLength=50; //default
 var sourceCodeMinLength=100; //default
-var sourceCodeSimilarityPercent=95; //default
+var sourceCodeSimilarityPercent=90; //default
 var workAnalysisRunCount=0; //default
 var workAnalysisTimeSpentMinutes=15; //default
 var workAnalysisSize=100; //default
-var pastedTextPercent=99; //default
+var pastedTextPercent=80; //default
 
 
 var chart;
