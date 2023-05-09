@@ -1455,7 +1455,8 @@ function getSimilarityAnalysisData(){
         //Checking for duplicate files using file checksum
         duplicateFiles = filesArr.filter(i=>i.file?._data?.crc32 !=null && i.file._data.crc32==files[file].file._data.crc32
                                                                 && (i.folderName==null || i.folderName!=files[file].folderName));
-        if(duplicateFiles.length>1 && !(similarityAnalysisResults['duplicateFiles'].hasOwnProperty(files[file].file._data.crc32))){
+        if(duplicateFiles.length>=1 && !(similarityAnalysisResults['duplicateFiles'].hasOwnProperty(files[file].file._data.crc32))){
+            duplicateFiles.push(files[file]);
             similarityAnalysisResults['duplicateFiles'][files[file].file._data.crc32]=duplicateFiles;
         }
         //analysing file contents
