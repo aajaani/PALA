@@ -332,7 +332,7 @@ function fileSubmit(){
             parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
         }else{ //wrong type
             if(!logInput[0].files[i].name.includes("veebitekst.html")){
-                errorAnalysing.push(logInput[0].files[i].name);
+                errorAnalysing.push( sanitizeText(logInput[0].files[i].name));
             }
         }
     }
@@ -389,7 +389,7 @@ function parseZipFile(entryId, zipFile, path=''){
                 });
             }else{
                 if(! RegExp('veebitekst\.html').test(files[i].name)){ //not veebitekst\.html
-                    errorAnalysing.push(path+'/'+files[i].name);
+                    errorAnalysing.push( sanitizeText(path+'/'+files[i].name));
                 }
             }
         }
@@ -404,6 +404,18 @@ function storeFileInfo(entryId, file, type, text) {
     if(!(entryId in files)){
         files[entryId] = {"file": file, "type": type, "entryId": entryId};
     }
+}
+
+function sanitizeObjectProperties(obj) {
+    Object.keys(obj).forEach((prop) => {
+        if (typeof obj[prop] === 'string') {
+            obj[prop] = sanitizeText(obj[prop]);
+        }
+    });
+}
+
+function sanitizeText(inputText) {
+    return inputText.replace(/[<>]/g, '');
 }
 
 function getJsonLog(text) {
@@ -421,12 +433,14 @@ function getJsonLog(text) {
  * @param {boolean} isZipObject - describes wether file object is zip object
  */
 function readObject(file, entryId, type="analyse", path='', isZipObject = false){
+    sanitizeObjectProperties(file);
+    path = sanitizeText(path);
     if (isZipObject){
         file.async("string")
         .then(function success(text) {
             try {
                 storeFileInfo(entryId, file, "zip", text);
-                handleObject(getJsonLog(text), file, entryId, path, isZipObject, type);
+                handleObject( getJsonLog( sanitizeText(text)), file, entryId, path, isZipObject, type);
             } catch (e){
                 console.log(e);
                 if(type=="analyse"){
@@ -443,7 +457,7 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
                 const text = event.target.result;
                 try{
                     storeFileInfo(entryId, file, "text", text);
-                    handleObject(getJsonLog(text), file, entryId, path, isZipObject, type);
+                    handleObject( getJsonLog( sanitizeText(text)), file, entryId, path, isZipObject, type);
                 } catch (e){ 
                     console.log(e);
                     if(type=="analyse"){
@@ -538,7 +552,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             || jsonLog[i].sequence==='ShellCommand' && jsonLog[i].command_text.includes('%Debug')){
             debugCount++;
         }
-        if(jsonLog[i].sequence==='<<Paste>>'
+        if(jsonLog[i].sequence==='Paste'
             && jsonLog[i].text_widget_class!=null
             && jsonLog[i].text_widget_class.includes("CodeViewText")){
             pasted.total++;
@@ -991,13 +1005,13 @@ function parseLogFile(jsonLog, type, entryId){
         }else if(type=="similarityAnalysis"){
             if (['TextInsert'].includes(jsonLog[i].sequence) && jsonLog[i].text_widget_class.includes('CodeViewText')){
                 let activeIndex=getActiveIndex(replayerFiles);
-                if(i!=0 && jsonLog[i-1].sequence=='<<Paste>>'){
+                if(i!=0 && jsonLog[i-1].sequence=='Paste'){
                     replayerFiles[activeIndex].pastedTextLength+=jsonLog[i].text.length;
                 }else{
                     replayerFiles[activeIndex].manualTextEditLength+=jsonLog[i].text.length;
                 }
             }
-            if(jsonLog[i].sequence==='<<Paste>>' &&
+            if(jsonLog[i].sequence==='Paste' &&
                 jsonLog[i].text_widget_class!=null &&
                 jsonLog[i].text_widget_class.includes("CodeViewText")){
                 if(jsonLog[i+1].text!=null){
@@ -1193,7 +1207,7 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
         }else if(logEvent.text_widget_class=='ShellText'){
             shellText=addChangesToText(shellText,logEvent);
         }
-    }else if(logEvent.sequence=='<Button-1>'
+    }else if(logEvent.sequence=='Button-1'
         && logEvent.text_widget_class!=null
         && logEvent.text_widget_class.includes('CodeViewText')){ //switch files
         if(activeIndex!=-1){
@@ -1337,8 +1351,8 @@ function handleEventListFocus(value){
 
     var nearestCacheIndex=jsonLogIndex-(jsonLogIndex%logCacheInterval);
 
-    var replayerFiles=JSON.parse(JSON.stringify(modalJsonLog[nearestCacheIndex].analysation_cache.replayerFiles));
-    var shellText=JSON.parse(JSON.stringify(modalJsonLog[nearestCacheIndex].analysation_cache.shellText));
+    var replayerFiles=deepCopy(modalJsonLog[nearestCacheIndex].analysation_cache.replayerFiles);
+    var shellText=deepCopy(modalJsonLog[nearestCacheIndex].analysation_cache.shellText);
     
     var ideIndex=0;
     for(var i=nearestCacheIndex+1;i<=jsonLogIndex;i++){
