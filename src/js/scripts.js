@@ -1402,6 +1402,7 @@ function handleEventListFocus(value){
     //scroll replayer if text insert
     if(replayerFiles[activeIndex]!=null && ideIndex!=0){
         let ideIndexRow=ideIndex.split('.')[0];
+        if(ideIndexRow>5){ideIndexRow-=5}
         let scrollHeight=$('#modal-main-ide')[0].scrollHeight/replayerFiles[activeIndex].codeViewText.length*ideIndexRow;
         $('#modal-main-ide').scrollTop(scrollHeight);
     }
