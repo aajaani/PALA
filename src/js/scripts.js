@@ -1195,7 +1195,7 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
         }else{
             console.log("Error replayer no active files.\n"+replayerFiles);
         }
-    }else if (logEvent.sequence=='TextInsert' || logEvent.sequence=='TextDelete'){
+    }else if (['TextInsert','TextDelete','FileContent'].includes(logEvent.sequence)){
         if(logEvent.text_widget_class.includes('CodeViewText')){
             if(jsonLog[index-1].sequence=='Open'){
                 replayerFiles[activeIndex].codeViewText=addChangesToText([],logEvent);
@@ -1269,7 +1269,7 @@ function getIndexOfArrayObjectAcctoProperty( objectList, propertyName, propertyV
  */
 function addChangesToText(ideText, logEvent){
 
-    if(logEvent.sequence=='TextInsert'){
+    if(['TextInsert','FileContent'].includes(logEvent.sequence)){
         var textEntered=logEvent.text.split("\n");
         var index=logEvent.index.split(".");
         var indexRow=index[0]-1;
