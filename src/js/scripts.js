@@ -25,6 +25,7 @@ var pastedTextPercent=80; //default
 
 
 var chart;
+const decoder = new TextDecoder('utf-8');
 
 $(function() {
     console.log( "ready!" );
@@ -436,9 +437,10 @@ function readObject(file, entryId, type="analyse", path='', isZipObject = false)
     sanitizeObjectProperties(file);
     path = sanitizeText(path);
     if (isZipObject){
-        file.async("string")
-        .then(function success(text) {
+        file.async("uint8array")
+        .then(function success(uint8Array) {
             try {
+                text = decoder.decode(uint8Array);
                 storeFileInfo(entryId, file, "zip", text);
                 handleObject( getJsonLog( sanitizeText(text)), file, entryId, path, isZipObject, type);
             } catch (e){
