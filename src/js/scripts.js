@@ -1197,6 +1197,10 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
         }
     }else if (['TextInsert','TextDelete','FileContent'].includes(logEvent.sequence)){
         if(logEvent.text_widget_class.includes('CodeViewText')){
+            if(activeIndex!=indexOfFile){
+                replayerFiles[activeIndex].active=false;
+                replayerFiles[indexOfFile].active=true;
+            }
             if(jsonLog[index-1].sequence=='Open'){
                 replayerFiles[activeIndex].codeViewText=addChangesToText([],logEvent);
             }else{
