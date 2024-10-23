@@ -721,11 +721,10 @@ function getNameObject(file, isZipObject = false, path=''){
         return {'fileName':fileName,
                 'folderName':firstFolderName,
                 'folderNameId':firstFolderName.replaceAll(/ |\./ig,'-'),
-                'multipleStudentId':`student-${firstFolder.replaceAll(/ |\./ig,'-')}`}
+                'multipleStudentId':`student-${firstFolder.replace(/[^a-z0-9-_:.]/g, '_')}`}
     }else{
         return {'filename':fileName}
     }
-
 }
 
 
