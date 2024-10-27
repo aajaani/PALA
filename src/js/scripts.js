@@ -26,6 +26,14 @@ var pastedTextPercent=80; //default
 
 var chart;
 const decoder = new TextDecoder('utf-8');
+const fullOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+};
 
 $(function() {
     console.log( "ready!" );
@@ -959,9 +967,9 @@ function parseLogFile(jsonLog, type, entryId){
             if(i%logCacheInterval==0){
                 jsonLog[i]["analysation_cache"]={"replayerFiles":deepCopy(replayerFiles),"shellText":deepCopy(shellText)};
             }
-
+            const currentDate = new Date(jsonLog[i].time);
             if(i>1){
-                split=(new Date(jsonLog[i].time))-(new Date(jsonLog[i-1].time));
+                split=currentDate-(new Date(jsonLog[i-1].time));
                 split=Math.floor(split / 1e3);
                 if(split<1){
                     split='';
@@ -970,8 +978,9 @@ function parseLogFile(jsonLog, type, entryId){
             
             eventList=`
                         <div id="${'event-list-row-'+i}" class="row event-row event-list-row" data-logfile-object-index="${i}" tabindex="0">
-                            <div class="col-7 event-list-name">${encodeEntitie(jsonLog[i].sequence)}</div>
-                            <div class="col-4 event-list-sec">${split}</div>
+                            <div class="col-5 event-list-name">${encodeEntitie(jsonLog[i].sequence)}</div>
+                            <div class="col-4 event-list-sec">${currentDate.toLocaleString('en-US', fullOptions)}</div>
+                            <div class="col-2 event-list-sec">${split}</div>
                         </div>
                         `;
 
