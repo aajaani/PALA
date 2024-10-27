@@ -720,7 +720,7 @@ function getNameObject(file, isZipObject = false, path=''){
         }
         return {'fileName':fileName,
                 'folderName':firstFolderName,
-                'folderNameId':firstFolderName.replaceAll(/ |\./ig,'-'),
+                'folderNameId':firstFolderName.replace(/ |\./ig,'-'),
                 'multipleStudentId':`student-${firstFolder.replace(/[^a-z0-9-_:.]/g, '_')}`}
     }else{
         return {'filename':fileName}
@@ -1215,11 +1215,11 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
     }else if(logEvent.sequence=='Button-1'
         && logEvent.text_widget_class!=null
         && logEvent.text_widget_class.includes('CodeViewText')){ //switch files
-        if(activeIndex!=-1){
-            replayerFiles[activeIndex].active=false;
-        }
         for(let i=0; i<replayerFiles.length;i++){
             if(replayerFiles[i].text_widget_id==logEvent.text_widget_id){
+                if(activeIndex!=-1){
+                    replayerFiles[activeIndex].active=false;
+                }
                 replayerFiles[i].active=true;
                 break;    
             }
