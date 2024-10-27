@@ -416,7 +416,7 @@ function sanitizeObjectProperties(obj) {
 }
 
 function sanitizeText(inputText) {
-    return inputText.replace(/[<>]/g, '');
+    return inputText.replace(/</g, '«').replace(/>/g, '»');
 }
 
 function getJsonLog(text) {
