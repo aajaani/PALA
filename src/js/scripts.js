@@ -341,7 +341,7 @@ function fileSubmit(){
             parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
         }else{ //wrong type
             if(!logInput[0].files[i].name.includes("veebitekst.html")){
-                errorAnalysing.push( sanitizeText(logInput[0].files[i].name));
+                errorAnalysing.push( sanitizeName(logInput[0].files[i].name));
             }
         }
     }
@@ -398,7 +398,7 @@ function parseZipFile(entryId, zipFile, path=''){
                 });
             }else{
                 if(! RegExp('veebitekst\.html').test(files[i].name)){ //not veebitekst\.html
-                    errorAnalysing.push( sanitizeText(path+'/'+files[i].name));
+                    errorAnalysing.push( sanitizeName(path+'/'+files[i].name));
                 }
             }
         }
@@ -418,13 +418,17 @@ function storeFileInfo(entryId, file, type, text) {
 function sanitizeObjectProperties(obj) {
     Object.keys(obj).forEach((prop) => {
         if (typeof obj[prop] === 'string') {
-            obj[prop] = sanitizeText(obj[prop]);
+            obj[prop] = sanitizeName(obj[prop]);
         }
     });
 }
 
 function sanitizeText(inputText) {
-    return inputText.replace(/</g, '«').replace(/>/g, '»');
+    return inputText.replaceAll('<', '«').replaceAll('>', '»');
+}
+
+function sanitizeName(inputText) {
+    return inputText.replace(/[<>]/g, '');
 }
 
 function getJsonLog(text) {
@@ -443,7 +447,7 @@ function getJsonLog(text) {
  */
 function readObject(file, entryId, type="analyse", path='', isZipObject = false){
     sanitizeObjectProperties(file);
-    path = sanitizeText(path);
+    path = sanitizeName(path);
     if (isZipObject){
         file.async("uint8array")
         .then(function success(uint8Array) {
@@ -571,15 +575,16 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 pasted.texts[getDateAsLocaleString(jsonLog[i+1].time)]='<pre>'.concat(jsonLog[i+1].text,'</pre>');
             }
         }
-        if(jsonLog[i].sequence==='SaveAs'){
-            let filename=jsonLog[i].filename.split('\\');
-            filesCreated.add(filename[filename.length-1]);
+        if(jsonLog[i].sequence==='fileCreated'){
+            filesCreated.add(jsonLog[i].filename);
         }
         if(jsonLog[i].sequence==='Open'){
-            let filename=jsonLog[i].filename.split('\\');
-            filesOpened.add(filename[filename.length-1]);
+            if (jsonLog[i].filename.includes('\\')) {
+                let filename=jsonLog[i].filename.split('\\');
+                filesOpened.add(filename[filename.length-1]);
+            }
+            filesOpened.add(jsonLog[i].filename);
         }
-
     }
     
     var generalInfo={
@@ -978,7 +983,7 @@ function parseLogFile(jsonLog, type, entryId){
             
             eventList=`
                         <div id="${'event-list-row-'+i}" class="row event-row event-list-row" data-logfile-object-index="${i}" tabindex="0">
-                            <div class="col-5 event-list-name">${encodeEntitie(jsonLog[i].sequence)}</div>
+                            <div class="col-5 event-list-name">${sanitizeName(jsonLog[i].sequence)}</div>
                             <div class="col-4 event-list-sec">${currentDate.toLocaleString('en-US', fullOptions)}</div>
                             <div class="col-2 event-list-sec">${split}</div>
                         </div>
@@ -1041,7 +1046,7 @@ function parseLogFile(jsonLog, type, entryId){
         file=`<div class="file btn btn-outline-dark" onclick="handleTextGraphDataChange(this);" data-text_widget_id="ShellText">Shell</div>`;
         $("#modal-main-header-graph").append(file);
         for(var i=0;i<replayerFiles.length;i++){
-            file=`<div class="file btn btn-outline-dark" onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+            file=`<div class="file btn btn-outline-dark" onclick="handleTextGraphDataChange(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${sanitizeName(replayerFiles[i].filename)}</div>`;
             $("#modal-main-header-graph").append(file);
         }
         chart = getNewChart('AllFiles');
@@ -1162,19 +1167,20 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
     let logEvent = jsonLog[index];
     let activeIndex=getActiveIndex(replayerFiles);
     let indexOfFile=-2;
-    if (logEvent.text_widget_id!=null && logEvent.sequence!='EditorTextCreated' && logEvent.text_widget_class!='ShellText'){
+    if (logEvent.text_widget_class!='ShellText'){
         indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==logEvent.text_widget_id);
     }
-    if (['Open','NewFile'].includes(logEvent.sequence) || indexOfFile==-1){
+    if (['Open','fileCreated'].includes(logEvent.sequence) || indexOfFile==-1) {
 
         if(activeIndex!=-1){
             replayerFiles[activeIndex].active=false;
         }
 
-        let filename="";
-        if(logEvent.sequence=='NewFile' || (indexOfFile==-1 && logEvent.sequence!='Open')){
+        let filename = logEvent.filename;
+        if (!['Open','fileCreated'].includes(logEvent.sequence)) {
             filename="<untitled>";
-        }else if(logEvent.sequence=='Open'){
+        }
+        if(logEvent.sequence=='Open' && logEvent.filename.includes('\\')){
             let filenameList=logEvent.filename.split('\\');
             filename=filenameList[filenameList.length-1];
         }
@@ -1194,19 +1200,16 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
                 , "pastedTextLength":0
                 , "manualTextEditLength":0});
         }
-    }else if (logEvent.sequence=='SaveAs'){
-        let filenameList=logEvent.filename.split('\\');
-        let filename=filenameList[filenameList.length-1];
-
+    }else if (logEvent.sequence=='fileDeleted'){
         if(activeIndex!=-1){
-            replayerFiles[activeIndex].filename=filename;
-        }else{
-            console.log("Error replayer no active files.\n"+replayerFiles);
+            replayerFiles.splice(activeIndex, 1)
         }
     }else if (['TextInsert','TextDelete','FileContent'].includes(logEvent.sequence)){
         if(logEvent.text_widget_class.includes('CodeViewText')){
             if(activeIndex!=indexOfFile){
-                replayerFiles[activeIndex].active=false;
+                if(activeIndex>=0){
+                    replayerFiles[activeIndex].active=false;
+                }
                 replayerFiles[indexOfFile].active=true;
             }
             if(jsonLog[index-1].sequence=='Open'){
@@ -1221,9 +1224,8 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
         }else if(logEvent.text_widget_class=='ShellText'){
             shellText=addChangesToText(shellText,logEvent);
         }
-    }else if(logEvent.sequence=='Button-1'
-        && logEvent.text_widget_class!=null
-        && logEvent.text_widget_class.includes('CodeViewText')){ //switch files
+    }else if(logEvent.sequence.includes('Button-1')
+        && logEvent.text_widget_class === 'CodeViewText'){ //switch files
         for(let i=0; i<replayerFiles.length;i++){
             if(replayerFiles[i].text_widget_id==logEvent.text_widget_id){
                 if(activeIndex!=-1){
@@ -1336,17 +1338,6 @@ function addChangesToText(ideText, logEvent){
     return ideText;
 }
 
-
-/**
- * 
- * @param {String} stringToEncode 
- * @returns stringToEncode which is made html safe 
- */
-function encodeEntitie( stringToEncode){
-    return stringToEncode.replaceAll('<','&lt;').replaceAll('>','&gt;');
-}
-
-
 /** When event list row clicked in replayer, the event state is displayed in replayer
  * 
  */
@@ -1371,7 +1362,7 @@ function handleEventListFocus(value){
     var ideIndex=0;
     for(var i=nearestCacheIndex+1;i<=jsonLogIndex;i++){
         [replayerFiles, shellText]=addLogEvent(replayerFiles, shellText, modalJsonLog, i);
-        
+
          if(modalJsonLog[jsonLogIndex].text_widget_class!=null
              && modalJsonLog[jsonLogIndex].text_widget_class.includes('CodeViewText')){
             if(modalJsonLog[jsonLogIndex].sequence=="TextInsert"){
@@ -1379,7 +1370,7 @@ function handleEventListFocus(value){
             }else if(modalJsonLog[jsonLogIndex].sequence=="TextDelete"){
                 ideIndex=modalJsonLog[jsonLogIndex].index1;
             }
-        }  
+        }
     }
     
     var activeIndex=getActiveIndex(replayerFiles);
@@ -1405,7 +1396,7 @@ function handleEventListFocus(value){
 
     $("#modal-main-header-replayer").empty()
     for(var i=0;i<replayerFiles.length;i++){
-        var file=`<div class="file btn btn-outline-dark ${replayerFiles[i].active ? 'active' : ''}" onclick="handleEventListFocus(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${encodeEntitie(replayerFiles[i].filename)}</div>`;
+        var file=`<div class="file btn btn-outline-dark ${replayerFiles[i].active ? 'active' : ''}" onclick="handleEventListFocus(this);" data-text_widget_id="${replayerFiles[i].text_widget_id}">${sanitizeName(replayerFiles[i].filename)}</div>`;
         $("#modal-main-header-replayer").append(file);
     }
 
@@ -1768,7 +1759,7 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
                             <br><b>Typed text length: ${metricValues[j].manualTextEditLength}</b>
                             <p><b>Filename:</b> ${metricValues[j].fileName +
                 (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
-                                <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].programFile)}</p>
+                                <br><b>Source code file:</b> ${sanitizeName(metricValues[j].programFile)}</p>
                             </div>
                             <div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(metricValues[j].text,1000)}</code></pre></div>
                         </div>                
@@ -1789,7 +1780,7 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
                                 <div class="card-header">
                                 <p><b>Filename:</b> ${metricValues[j].thisObject.fileName +
                             (metricValues[j].thisObject.folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].thisObject.folderName)}
-                                    <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].thisObject.programFile)}</p>
+                                    <br><b>Source code file:</b> ${sanitizeName(metricValues[j].thisObject.programFile)}</p>
                                 </div>
                                 <div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(metricValues[j].thisObject.text,1000)}</code></pre></div>
                             </div>
@@ -1799,7 +1790,7 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
                                 <div class="card-header">
                                 <p><b>Filename:</b> ${programFile.fileName +
                             (programFile.folderName==null ? '' : '; <br><b>Foldername:</b> '+programFile.folderName)}
-                                    <br><b>Source code file:</b> ${encodeEntitie(programFile.programFile)}</p>
+                                    <br><b>Source code file:</b> ${sanitizeName(programFile.programFile)}</p>
                                 </div>
                                 <div class="card-body"><pre><code class="python hljs">${getDisplayTextForDOM(programFile.text,1000)}</code></pre></div>
                             </div>                
@@ -1811,7 +1802,7 @@ function addSimilarityAnalysisResultsDOM(paneId, analysisType) {
             }else if(analysisType=='sourceCodePasted' && metricValues[j].hasOwnProperty('programFile')){
                 tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + 
                 (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}
-                <br><b>Source code file:</b> ${encodeEntitie(metricValues[j].programFile)}</p>`;
+                <br><b>Source code file:</b> ${sanitizeName(metricValues[j].programFile)}</p>`;
             }else{
                 tabPanelValue += `<p><b><h6>${j}.</h6> Filename:</b> ${metricValues[j].fileName + (metricValues[j].folderName==null ? '' : '; <br><b>Foldername:</b> '+metricValues[j].folderName)}</p>`;
             }
