@@ -1211,6 +1211,7 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
                     replayerFiles[activeIndex].active=false;
                 }
                 replayerFiles[indexOfFile].active=true;
+                activeIndex = indexOfFile;
             }
             if(jsonLog[index-1].sequence=='Open'){
                 replayerFiles[activeIndex].codeViewText=addChangesToText([],logEvent);
