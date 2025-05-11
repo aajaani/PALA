@@ -1236,12 +1236,13 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
                 break;    
             }
         }
-    }else if(logEvent.sequence==='ShellCommand'
-        && logEvent.command_text.slice(0,4)==='%Run'
-        && !replayerFiles[activeIndex]["hasRun"]){ //file has run first time
-        replayerFiles[activeIndex]["hasRun"]=true;
-        replayerFiles[activeIndex]["timeAtStartProgramRun"]=new Date(logEvent.time);
-        replayerFiles[activeIndex]["charCountAtFirstRun"]=replayerFiles[activeIndex].codeViewText.reduce(reducerStringArray,0);
+    }else if (logEvent.sequence === 'ShellCommand'
+        && logEvent.command_text.slice(0, 4) === '%Run'
+        && activeIndex !== -1
+        && !replayerFiles[activeIndex]["hasRun"]) {
+        replayerFiles[activeIndex]["hasRun"] = true;
+        replayerFiles[activeIndex]["timeAtStartProgramRun"] = new Date(logEvent.time);
+        replayerFiles[activeIndex]["charCountAtFirstRun"] = replayerFiles[activeIndex].codeViewText.reduce(reducerStringArray, 0);
     }
     return [replayerFiles, shellText];
 }
