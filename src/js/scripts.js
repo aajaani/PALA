@@ -1292,6 +1292,9 @@ function addChangesToText(ideText, logEvent){
         var indexColumn=index[1];
 
         if (indexRow>=ideText.length){ //text added to end
+            if (indexRow > ideText.length + 1) { //add padding if previous context missing
+                ideText.push(...Array(indexRow - ideText.length).fill(""));
+            }
             ideText=ideText.concat(textEntered);
         }else if(textEntered.length==1){
             var row=ideText[indexRow];
