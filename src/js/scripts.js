@@ -550,7 +550,9 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 filesRan.add(jsonLog[i].command_text.slice(5).replaceAll('\'',''));
             }
         }
-        if(jsonLog[i].sequence==='TextInsert' && jsonLog[i].text.includes('Error') && jsonLog[i].text_widget_class==="ShellText"){
+        if(jsonLog[i].sequence==='TextInsert'
+            && jsonLog[i].text_widget_class==="ShellText"
+            && /Error|Exception/.test(jsonLog[i].text) ){
             errors.total++;
             switch(jsonLog[i].text.split(":")[0]){
                 case "SyntaxError": errors.syntaxError++; break;
