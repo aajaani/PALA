@@ -983,7 +983,7 @@ function parseLogFile(jsonLog, type, entryId){
             
             eventList=`
                         <div id="${'event-list-row-'+i}" class="row event-row event-list-row" data-logfile-object-index="${i}" tabindex="0">
-                            <div class="col-5 event-list-name">${sanitizeName(jsonLog[i].sequence)}</div>
+                            <div class="col-5 event-list-name">${sanitizeName(jsonLog[i].text_widget_class === "ShellText" ? "ShellText" : jsonLog[i].sequence)}</div>
                             <div class="col-4 event-list-sec">${currentDate.toLocaleString('en-US', fullOptions)}</div>
                             <div class="col-2 event-list-sec">${split}</div>
                         </div>
