@@ -1167,7 +1167,7 @@ function addLogEvent(replayerFiles, shellText, jsonLog, index){
     let logEvent = jsonLog[index];
     let activeIndex=getActiveIndex(replayerFiles);
     let indexOfFile=-2;
-    if (logEvent.text_widget_class!='ShellText'){
+    if (logEvent.text_widget_class!='ShellText' && logEvent.sequence !== 'ShellCommand'){
         indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==logEvent.text_widget_id);
     }
     if (['Open','fileCreated'].includes(logEvent.sequence) || indexOfFile==-1) {
