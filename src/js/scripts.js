@@ -568,7 +568,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             || jsonLog[i].sequence==='ShellCommand' && jsonLog[i].command_text.includes('%Debug')){
             debugCount++;
         }
-        if(jsonLog[i].sequence==='Paste'
+        if(jsonLog[i].sequence.includes('Paste')
             && jsonLog[i].text_widget_class!=null
             && jsonLog[i].text_widget_class.includes("CodeViewText")){
             pasted.total++;
@@ -1022,13 +1022,13 @@ function parseLogFile(jsonLog, type, entryId){
         }else if(type=="similarityAnalysis"){
             if (['TextInsert'].includes(jsonLog[i].sequence) && jsonLog[i].text_widget_class.includes('CodeViewText')){
                 let activeIndex=getActiveIndex(replayerFiles);
-                if(i!=0 && jsonLog[i-1].sequence=='Paste'){
+                if(i!=0 && jsonLog[i-1].sequence.includes('Paste')){
                     replayerFiles[activeIndex].pastedTextLength+=jsonLog[i].text.length;
                 }else{
                     replayerFiles[activeIndex].manualTextEditLength+=jsonLog[i].text.length;
                 }
             }
-            if(jsonLog[i].sequence==='Paste' &&
+            if(jsonLog[i].sequence.includes('Paste') &&
                 jsonLog[i].text_widget_class!=null &&
                 jsonLog[i].text_widget_class.includes("CodeViewText")){
                 if(jsonLog[i+1].text!=null){
