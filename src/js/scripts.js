@@ -1455,7 +1455,7 @@ async function replayerAutoPlay(){
             break;
         }
         speed=parseInt($('#replayer-speed-range').val());
-        await sleep(30);
+        await sleep(120);
         $('#event-list-row-'+jsonLogIndex).focus();
     }
 }
