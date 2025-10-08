@@ -1,5 +1,5 @@
 # PALA: Programming Activity Log Analyser
-### Web application is available **[here](https://github.com/Programming-Activity-Log-Analyser/PALA)**. 
+### Web application is available **[here](https://progtugi.cs.ut.ee/pala/)**. 
 
 ---
 
