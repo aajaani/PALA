@@ -542,6 +542,12 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     let filesCreated=new Set();
     let filesRan=new Set();
     let filesOpened=new Set();
+    let builds=[];
+    let runs=[];
+    let errorEvents=[];
+    let buildCount=0;
+    let buildErrorCount=0;
+    let javaRunCount=0;
     for(let i=0;i<jsonLog.length;i++){
         if(jsonLog[i].sequence==='ShellCommand'
             && jsonLog[i].command_text.slice(0,4)==='%Run'){
@@ -587,6 +593,54 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             }
             filesOpened.add(jsonLog[i].filename);
         }
+        if(jsonLog[i].sequence==='BuildStart'){
+            buildCount++;
+            builds.push({
+                build_id: jsonLog[i].build_id,
+                time: jsonLog[i].time,
+                success: null,
+                error_count: 0,
+                warning_count: 0,
+                errors: []
+            });
+        }
+        if(jsonLog[i].sequence==='BuildEnd'){
+            let build = builds.find(b => b.build_id === jsonLog[i].build_id);
+            if(build){
+                build.success = jsonLog[i].success;
+                build.error_count = jsonLog[i].error_count;
+                build.warning_count = jsonLog[i].warning_count;
+            }
+            if(jsonLog[i].success === false){
+                buildErrorCount++;
+            }
+        }
+        if(jsonLog[i].sequence==='RunStart'){
+            javaRunCount++;
+            runCount++;
+            runs.push({
+                run_id: jsonLog[i].run_id,
+                time: jsonLog[i].time,
+                filename: jsonLog[i].filename,
+                exitCode: null
+            });
+        }
+        if(jsonLog[i].sequence==='RunEnd'){
+            let run = runs.find(r => r.run_id === jsonLog[i].run_id);
+            if(run){
+                let exitMatch = jsonLog[i].message ? jsonLog[i].message.match(/exitCode=(\d+)/) : null;
+                run.exitCode = exitMatch ? parseInt(exitMatch[1]) : null;
+            }
+        }
+        if(jsonLog[i].sequence==='ErrorNormalized'){
+            errorEvents.push(jsonLog[i]);
+            if(jsonLog[i].build_id){
+                let build = builds.find(b => b.build_id === jsonLog[i].build_id);
+                if(build){
+                    build.errors.push(jsonLog[i]);
+                }
+            }
+        }
     }
     
     var generalInfo={
@@ -600,6 +654,15 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'Files created':[...filesCreated].join('<br>'),
         'Files ran':[...filesRan].join('<br>'),
         'Files opened':[...filesOpened  ].join('<br>')
+    }
+
+    let compileErrorCount = errorEvents.filter(e => e.phase === 'compile').length;
+    let runtimeErrorCount = errorEvents.filter(e => e.phase === 'runtime').length;
+    if(buildCount > 0){
+        generalInfo['Build count'] = buildCount;
+        generalInfo['Failed builds'] = buildErrorCount;
+        generalInfo['Compile errors'] = compileErrorCount;
+        generalInfo['Runtime errors'] = runtimeErrorCount;
     }
 
     var idGeneralInfo=`tableGeneralInfo-${entryId}`;
@@ -699,6 +762,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'pasted character count':pasted.characterCount,
         'debug count':debugCount,
         'files opened count':filesOpened.size,
+        'build count':buildCount,
+        'failed build count':buildErrorCount,
+        'compile error count':compileErrorCount,
+        'runtime error count':runtimeErrorCount,
         'time solving till first run (for each program)':"",
         'character count before first run (for each program)':"",
         'character count at the end (for each program)':""
@@ -710,6 +777,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     csvValues.push(fileAnalysisResults);
     files[entryId]['fileName']=nameObject.fileName;
     files[entryId]['fileAnalysisResults']=fileAnalysisResults;
+    files[entryId]['errorAnalysis']={builds, runs, errorEvents};
 }
 
 /**
@@ -1168,6 +1236,9 @@ function getNewChart(index){
 function addLogEvent(replayerFiles, shellText, jsonLog, index){
     let logEvent = jsonLog[index];
     let activeIndex=getActiveIndex(replayerFiles);
+    if (['BuildStart','BuildEnd','RunStart','RunEnd','ErrorNormalized'].includes(logEvent.sequence)){
+        return [replayerFiles, shellText];
+    }
     let indexOfFile=-2;
     if (logEvent.text_widget_class!='ShellText' && logEvent.sequence !== 'ShellCommand'){
         indexOfFile=replayerFiles.findIndex(obj => obj.text_widget_id==logEvent.text_widget_id);
