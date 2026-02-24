@@ -665,6 +665,31 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         generalInfo['Runtime errors'] = runtimeErrorCount;
     }
 
+    let errorSummary = {};
+    if (errorEvents.length > 0) {
+        let compileErrors = {};
+        let runtimeErrors = {};
+        for (let e of errorEvents) {
+            if (e.phase === 'compile') {
+                compileErrors[e.error_category] = (compileErrors[e.error_category] || 0) + 1;
+            } else if (e.phase === 'runtime') {
+                runtimeErrors[e.error_category] = (runtimeErrors[e.error_category] || 0) + 1;
+            }
+        }
+        if (Object.keys(compileErrors).length > 0) {
+            errorSummary['<strong>Compile errors</strong>'] = '';
+            for (let cat in compileErrors) {
+                errorSummary[cat] = compileErrors[cat];
+            }
+        }
+        if (Object.keys(runtimeErrors).length > 0) {
+            errorSummary['<strong>Runtime errors</strong>'] = '';
+            for (let cat in runtimeErrors) {
+                errorSummary[cat] = runtimeErrors[cat];
+            }
+        }
+    }
+
     var idGeneralInfo=`tableGeneralInfo-${entryId}`;
     var idCopyPaste=`tableCopyPaste-${entryId}`;
     var idErrors=`tableErrors-${entryId}`;
@@ -711,6 +736,27 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                     </div>
                 </div>
             </div>`;
+
+    var idErrorSummary = `tableErrorSummary-${entryId}`;
+    var tableErrorSummary = '';
+    if (errorEvents.length > 0) {
+        tableErrorSummary = `
+            <div class="analysed-panel-btn-block" id='errorSummary-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrorSummary-${entryId}" role="button" aria-expanded="false" aria-controls="collapseErrorSummary-${entryId}">
+                Error Summary (${errorEvents.length})
+                </a>
+                <div class="collapse" id="collapseErrorSummary-${entryId}">
+                    <div class="card card-body">
+                        <table class="table" id='${idErrorSummary}'>
+                        <tbody>
+
+                        </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }
+
     var replayerButton=`
             <div class="analysed-panel-btn-block">
                 <button id="btn-open-replayer-${entryId}" class="btn btn-primary btn-replayer" data-toggle="modal" data-target="#replayerModal" data-entry-id="${entryId}">
@@ -734,6 +780,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     $('#'+panelId).append(tableGeneralInfo);
     $('#'+panelId).append(tableCopyPaste);
     $('#'+panelId).append(tableErrors);
+    if (tableErrorSummary) {
+        $('#'+panelId).append(tableErrorSummary);
+        displayDataTable(idErrorSummary, errorSummary);
+    }
     $('#'+panelId).append(replayerButton);
     $('#'+panelId).append(textGraphButton);
 
