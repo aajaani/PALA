@@ -690,6 +690,29 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         }
     }
 
+    // Build history timeline rows
+    let buildHistoryHtml = '';
+    if (builds.length > 0) {
+        for (let b of builds) {
+            let time = getDateAsLocaleString(b.time);
+            let status = b.success === true ? '✓ Success' : b.success === false ? '✗ Failed' : '? Unknown';
+            let statusClass = b.success === true ? 'text-success' : b.success === false ? 'text-danger' : '';
+            let details = '';
+            if (b.error_count > 0) {
+                let categories = b.errors.map(e => e.error_category).join(', ');
+                details = `${b.error_count} error(s): ${categories}`;
+            }
+            if (b.warning_count > 0) {
+                details += (details ? ', ' : '') + `${b.warning_count} warning(s)`;
+            }
+            buildHistoryHtml += `<tr>
+                <td>${time}</td>
+                <td class="${statusClass}"><strong>${status}</strong></td>
+                <td>${details}</td>
+            </tr>`;
+        }
+    }
+
     var idGeneralInfo=`tableGeneralInfo-${entryId}`;
     var idCopyPaste=`tableCopyPaste-${entryId}`;
     var idErrors=`tableErrors-${entryId}`;
@@ -757,6 +780,24 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             </div>`;
     }
 
+    var tableBuildHistory = '';
+    if (builds.length > 0) {
+        tableBuildHistory = `
+            <div class="analysed-panel-btn-block" id='buildHistory-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseBuildHistory-${entryId}" role="button" aria-expanded="false" aria-controls="collapseBuildHistory-${entryId}">
+                Build History (${builds.length})
+                </a>
+                <div class="collapse" id="collapseBuildHistory-${entryId}">
+                    <div class="card card-body">
+                        <table class="table table-sm" id='tableBuildHistory-${entryId}'>
+                        <thead><tr><th>Time</th><th>Status</th><th>Details</th></tr></thead>
+                        <tbody>${buildHistoryHtml}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }
+
     var replayerButton=`
             <div class="analysed-panel-btn-block">
                 <button id="btn-open-replayer-${entryId}" class="btn btn-primary btn-replayer" data-toggle="modal" data-target="#replayerModal" data-entry-id="${entryId}">
@@ -783,6 +824,9 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if (tableErrorSummary) {
         $('#'+panelId).append(tableErrorSummary);
         displayDataTable(idErrorSummary, errorSummary);
+    }
+    if (tableBuildHistory) {
+        $('#'+panelId).append(tableBuildHistory);
     }
     $('#'+panelId).append(replayerButton);
     $('#'+panelId).append(textGraphButton);
