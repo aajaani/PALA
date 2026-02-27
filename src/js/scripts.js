@@ -642,7 +642,41 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             }
         }
     }
-    
+
+    // EQ (Error Quotient) — Jadud 2006 
+    const ETYPE_SAME = 11;
+    const ETYPE_DIFF = 8;
+    const ELINE_PENALTY = 0;  
+    const MAX_SCORE = ETYPE_SAME + ELINE_PENALTY; 
+
+    let eqScore = null;
+    if (builds.length >= 2) {
+        let eqSum = 0;
+        let totalPairs = builds.length - 1;
+
+        for (let i = 0; i < builds.length - 1; i++) {
+            let b1 = builds[i];
+            let b2 = builds[i + 1];
+            let b1HasErrors = b1.errors.length > 0;
+            let b2HasErrors = b2.errors.length > 0;
+
+            if (!b1HasErrors || !b2HasErrors) continue;
+
+            // check if any error category matches between the two builds
+            let cats1 = new Set(b1.errors.map(e => e.error_category));
+            let cats2 = new Set(b2.errors.map(e => e.error_category));
+            let sameType = false;
+            for (let c of cats1) {
+                if (cats2.has(c)) { sameType = true; break; }
+            }
+
+            let pairScore = sameType ? ETYPE_SAME : ETYPE_DIFF;
+            eqSum += pairScore;
+        }
+
+        eqScore = totalPairs > 0 ? eqSum / (totalPairs * MAX_SCORE) : 0;
+    }
+
     var generalInfo={
         'Start time':startTime.toLocaleString('en-GB'),
         'End time':endTime.toLocaleString('en-GB'),
@@ -663,6 +697,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         generalInfo['Failed builds'] = buildErrorCount;
         generalInfo['Compile errors'] = compileErrorCount;
         generalInfo['Runtime errors'] = runtimeErrorCount;
+    }
+    if (eqScore !== null) {
+        let eqLabel = eqScore < 0.3 ? 'Low' : eqScore < 0.6 ? 'Medium' : 'High';
+        generalInfo['EQ (Error Quotient)'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
     }
 
     let errorSummary = {};
@@ -860,6 +898,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'failed build count':buildErrorCount,
         'compile error count':compileErrorCount,
         'runtime error count':runtimeErrorCount,
+        'EQ score': eqScore !== null ? eqScore.toFixed(3) : '',
         'time solving till first run (for each program)':"",
         'character count before first run (for each program)':"",
         'character count at the end (for each program)':""
