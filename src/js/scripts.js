@@ -643,38 +643,94 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         }
     }
 
-    // EQ (Error Quotient) — Jadud 2006 
-    const ETYPE_SAME = 11;
-    const ETYPE_DIFF = 8;
-    const ELINE_PENALTY = 0;  
-    const MAX_SCORE = ETYPE_SAME + ELINE_PENALTY; 
-
+    // EQ (Error Quotient) — Jadud 2006
+    // Reference: Švábenský et al. (2024), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/eq.py, adapted for PALG logs
     let eqScore = null;
-    if (builds.length >= 2) {
-        let eqSum = 0;
-        let totalPairs = builds.length - 1;
 
-        for (let i = 0; i < builds.length - 1; i++) {
-            let b1 = builds[i];
-            let b2 = builds[i + 1];
-            let b1HasErrors = b1.errors.length > 0;
-            let b2HasErrors = b2.errors.length > 0;
+    // extract compile pairs — consecutive pairs from all builds
+    let compile_pairs = [];
+    for (let i = 0; i < builds.length - 1; i++) {
+        compile_pairs.push([i, i + 1]);
+    }
 
-            if (!b1HasErrors || !b2HasErrors) continue;
+    if (compile_pairs.length > 0) {
+        let score = 0;
+        for (let pair of compile_pairs) {
+            let e1 = pair[0];
+            let e2 = pair[1];
 
-            // check if any error category matches between the two builds
-            let cats1 = new Set(b1.errors.map(e => e.error_category));
-            let cats2 = new Set(b2.errors.map(e => e.error_category));
-            let sameType = false;
-            for (let c of cats1) {
-                if (cats2.has(c)) { sameType = true; break; }
+            let e1_errors = builds[e1].errors;
+            let e2_errors = builds[e2].errors;
+
+            let score_delta = 0;
+            if (e1_errors.length > 0 && e2_errors.length > 0) {
+                // If both compiles resulted in errors, add 8 to the score
+                score_delta += 8;
+
+                // Get the set of errors shared by both compiles
+                let e1_types = new Set(e1_errors.map(e => e.error_category));
+                let e2_types = new Set(e2_errors.map(e => e.error_category));
+                let shared_errors = new Set([...e1_types].filter(x => e2_types.has(x)));
+                if (shared_errors.size > 0) {
+                    score_delta += 3;
+                }
             }
+            score += score_delta / 11;
+        }
+        eqScore = score / compile_pairs.length;
+    }
 
-            let pairScore = sameType ? ETYPE_SAME : ETYPE_DIFF;
-            eqSum += pairScore;
+    // RED (Repeated Error Density) — Becker 2016
+    // Reference: Švábenský et al. (2024), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/red.py, adapted for PALG logs
+    let redScore = null;
+    let redDetails = [];
+
+    if (builds.length >= 2) {
+        let red = 0;
+        let divisor = 0;
+        let repeated = 0;
+        let categoryRepeatCount = {};
+        for (let i = 1; i < builds.length; i++) {
+            divisor += 1;
+
+            let e1_errors = builds[i - 1].errors;
+            let e2_errors = builds[i].errors;
+
+            let e1_types = new Set(e1_errors.map(e => e.error_category));
+            let e2_types = new Set(e2_errors.map(e => e.error_category));
+            let shared_errors = new Set([...e1_types].filter(x => e2_types.has(x)));
+
+            if (shared_errors.size > 0) {
+                // If there is a shared error, increment the r count
+                repeated = repeated + 1;
+                for (let c of shared_errors) {
+                    categoryRepeatCount[c] = (categoryRepeatCount[c] || 0) + 1;
+                }
+            } else {
+                // Otherwise, there was a new error or no errors, so add to RED and reset
+                if (repeated > 0) {
+                    red += (repeated ** 2) / (repeated + 1);
+                }
+                repeated = 0;
+            }
         }
 
-        eqScore = totalPairs > 0 ? eqSum / (totalPairs * MAX_SCORE) : 0;
+        if (repeated > 0) {
+            red += (repeated ** 2) / (repeated + 1);
+        }
+
+        if (divisor === 0) {
+            redScore = null;
+        } else {
+            // Normalize by number of consecutive pairs 
+            red = red / divisor;
+            redScore = red;
+        }
+
+        for (let cat in categoryRepeatCount) {
+            redDetails.push({ category: cat, repeats: categoryRepeatCount[cat] });
+        }
+        redDetails.sort((a, b) => b.repeats - a.repeats);
     }
 
     var generalInfo={
@@ -701,6 +757,9 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if (eqScore !== null) {
         let eqLabel = eqScore < 0.3 ? 'Low' : eqScore < 0.6 ? 'Medium' : 'High';
         generalInfo['EQ (Error Quotient)'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
+    }
+    if (redScore !== null) {
+        generalInfo['RED (Repeated Error Density)'] = redScore.toFixed(3);
     }
 
     let errorSummary = {};
@@ -836,6 +895,41 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             </div>`;
     }
 
+    var tableRedDetails = '';
+    if (redDetails.length > 0) {
+        let redRowsHtml = '';
+        let maxRepeats = redDetails[0].repeats; // sorted descending
+        for (let d of redDetails) {
+            let barWidth = maxRepeats > 0 ? (d.repeats / maxRepeats * 100).toFixed(1) : 0;
+            redRowsHtml += `<tr>
+                <td>${d.category}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="background:#e9ecef;border-radius:4px;width:100px;height:14px;">
+                            <div style="background:#dc3545;border-radius:4px;width:${barWidth}%;height:100%;"></div>
+                        </div>
+                        <span>${d.repeats}</span>
+                    </div>
+                </td>
+            </tr>`;
+        }
+        tableRedDetails = `
+            <div class="analysed-panel-btn-block" id='redDetails-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseRedDetails-${entryId}" role="button" aria-expanded="false" aria-controls="collapseRedDetails-${entryId}">
+                RED (Repeated Error Density)
+                </a>
+                <div class="collapse" id="collapseRedDetails-${entryId}">
+                    <div class="card card-body">
+                        <p>Overall RED: <strong>${redScore.toFixed(3)}</strong> — normalized by number of compilation pairs. Higher values indicate more consecutive repetition of the same errors (Becker, 2016).</p>
+                        <table class="table table-sm">
+                        <thead><tr><th>Error Category</th><th>Repeated Pairs</th></tr></thead>
+                        <tbody>${redRowsHtml}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }
+
     var replayerButton=`
             <div class="analysed-panel-btn-block">
                 <button id="btn-open-replayer-${entryId}" class="btn btn-primary btn-replayer" data-toggle="modal" data-target="#replayerModal" data-entry-id="${entryId}">
@@ -865,6 +959,9 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     }
     if (tableBuildHistory) {
         $('#'+panelId).append(tableBuildHistory);
+    }
+    if (tableRedDetails) {
+        $('#'+panelId).append(tableRedDetails);
     }
     $('#'+panelId).append(replayerButton);
     $('#'+panelId).append(textGraphButton);
@@ -899,6 +996,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'compile error count':compileErrorCount,
         'runtime error count':runtimeErrorCount,
         'EQ score': eqScore !== null ? eqScore.toFixed(3) : '',
+        'RED score': redScore !== null ? redScore.toFixed(3) : '',
         'time solving till first run (for each program)':"",
         'character count before first run (for each program)':"",
         'character count at the end (for each program)':""
