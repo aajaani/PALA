@@ -644,7 +644,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     }
 
     // EQ (Error Quotient) — Jadud 2006
-    // Reference: Švábenský et al. (2024), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/eq.py, adapted for PALG logs
+    // Algorithm reference: Price et al. (2020), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/eq.py, adapted for PALG logs
     let eqScore = null;
 
     // extract compile pairs — consecutive pairs from all builds
@@ -681,7 +681,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     }
 
     // RED (Repeated Error Density) — Becker 2016
-    // Reference: Švábenský et al. (2024), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/red.py, adapted for PALG logs
+    // Algorithm reference: Price et al. (2020), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/red.py, adapted for PALG logs
     let redScore = null;
     let redDetails = [];
 
