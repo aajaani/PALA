@@ -622,7 +622,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 run_id: jsonLog[i].run_id,
                 time: jsonLog[i].time,
                 filename: jsonLog[i].filename,
-                exitCode: null
+                exitCode: null,
+                errors: []
             });
         }
         if(jsonLog[i].sequence==='RunEnd'){
@@ -638,6 +639,12 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 let build = builds.find(b => b.build_id === jsonLog[i].build_id);
                 if(build){
                     build.errors.push(jsonLog[i]);
+                }
+            }
+            if(jsonLog[i].run_id){
+                let run = runs.find(r => r.run_id === jsonLog[i].run_id);
+                if(run){
+                    run.errors.push(jsonLog[i]);
                 }
             }
         }
@@ -733,6 +740,132 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         redDetails.sort((a, b) => b.repeats - a.repeats);
     }
 
+    // Runtime EQ 
+    let runtimeEqScore = null;
+    let runtimeRunPairs = [];
+    for (let i = 0; i < runs.length - 1; i++) {
+        runtimeRunPairs.push([i, i + 1]);
+    }
+    if (runtimeRunPairs.length > 0) {
+        let score = 0;
+        for (let pair of runtimeRunPairs) {
+            let r1_errors = runs[pair[0]].errors;
+            let r2_errors = runs[pair[1]].errors;
+            let score_delta = 0;
+            if (r1_errors.length > 0 && r2_errors.length > 0) {
+                score_delta += 8;
+                let r1_types = new Set(r1_errors.map(e => e.error_category));
+                let r2_types = new Set(r2_errors.map(e => e.error_category));
+                let shared = new Set([...r1_types].filter(x => r2_types.has(x)));
+                if (shared.size > 0) {
+                    score_delta += 3;
+                }
+            }
+            score += score_delta / 11;
+        }
+        runtimeEqScore = score / runtimeRunPairs.length;
+    }
+    if (runs.every(r => r.errors.length === 0)) runtimeEqScore = null;
+
+    // Runtime RED 
+    let runtimeRedScore = null;
+    let runtimeRedDetails = [];
+    if (runs.length >= 2) {
+        let red = 0;
+        let divisor = 0;
+        let repeated = 0;
+        let categoryRepeatCount = {};
+        for (let i = 1; i < runs.length; i++) {
+            divisor += 1;
+            let r1_errors = runs[i - 1].errors;
+            let r2_errors = runs[i].errors;
+            let r1_types = new Set(r1_errors.map(e => e.error_category));
+            let r2_types = new Set(r2_errors.map(e => e.error_category));
+            let shared = new Set([...r1_types].filter(x => r2_types.has(x)));
+            if (shared.size > 0) {
+                repeated += 1;
+                for (let c of shared) {
+                    categoryRepeatCount[c] = (categoryRepeatCount[c] || 0) + 1;
+                }
+            } else {
+                if (repeated > 0) {
+                    red += (repeated ** 2) / (repeated + 1);
+                }
+                repeated = 0;
+            }
+        }
+        if (repeated > 0) {
+            red += (repeated ** 2) / (repeated + 1);
+        }
+        if (divisor > 0) {
+            runtimeRedScore = red / divisor;
+        }
+        for (let cat in categoryRepeatCount) {
+            runtimeRedDetails.push({ category: cat, repeats: categoryRepeatCount[cat] });
+        }
+        runtimeRedDetails.sort((a, b) => b.repeats - a.repeats);
+    }
+    if (runs.every(r => r.errors.length === 0)) runtimeRedScore = null;
+
+    // Time-to-Fix — Altadmri & Brown (2015)
+    // For each error_category appearing in a build, scan forward until it disappears
+    let timeToFix = [];
+    if (builds.length >= 2) {
+        // Collect all fix times grouped by category
+        let fixTimesByCategory = {};
+        for (let i = 0; i < builds.length; i++) {
+            let categories = new Set(builds[i].errors.map(e => e.error_category));
+            // Skip builds with no errors
+            if (categories.size === 0) continue;
+            // For each category in this build, check if it's a new appearance
+            let prevCategories = i > 0 ? new Set(builds[i - 1].errors.map(e => e.error_category)) : new Set();
+            for (let cat of categories) {
+                if (i > 0 && prevCategories.has(cat)) continue; // continuation, not new appearance
+                // New appearance of this category, scan forward for resolution
+                let resolved = false;
+                for (let j = i + 1; j < builds.length; j++) {
+                    let jCategories = new Set(builds[j].errors.map(e => e.error_category));
+                    if (!jCategories.has(cat)) {
+                        // Resolved at build j
+                        let fixTime = (new Date(builds[j].time) - new Date(builds[i].time)) / 1000;
+                        if (!fixTimesByCategory[cat]) fixTimesByCategory[cat] = { fixed: [], unfixed: 0 };
+                        fixTimesByCategory[cat].fixed.push(fixTime);
+                        resolved = true;
+                        break;
+                    }
+                }
+                if (!resolved) {
+                    // Never fixed during session
+                    if (!fixTimesByCategory[cat]) fixTimesByCategory[cat] = { fixed: [], unfixed: 0 };
+                    fixTimesByCategory[cat].unfixed++;
+                }
+            }
+        }
+        // Compute median for each category
+        for (let cat in fixTimesByCategory) {
+            let times = fixTimesByCategory[cat].fixed;
+            let medianSeconds = null;
+            if (times.length > 0) {
+                times.sort((a, b) => a - b);
+                let mid = Math.floor(times.length / 2);
+                medianSeconds = times.length % 2 !== 0 ? times[mid] : (times[mid - 1] + times[mid]) / 2;
+            }
+            timeToFix.push({
+                category: cat,
+                count: times.length + fixTimesByCategory[cat].unfixed,
+                medianSeconds: medianSeconds,
+                unfixedCount: fixTimesByCategory[cat].unfixed
+            });
+        }
+        timeToFix.sort((a, b) => {
+            // Sort by median fix time descending, unfixed-only entries last
+            if (a.medianSeconds === null && b.medianSeconds === null) return 0;
+            if (a.medianSeconds === null) return 1;
+            if (b.medianSeconds === null) return -1;
+            return b.medianSeconds - a.medianSeconds;
+        });
+    }
+
     var generalInfo={
         'Start time':startTime.toLocaleString('en-GB'),
         'End time':endTime.toLocaleString('en-GB'),
@@ -756,10 +889,30 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     }
     if (eqScore !== null) {
         let eqLabel = eqScore < 0.3 ? 'Low' : eqScore < 0.6 ? 'Medium' : 'High';
-        generalInfo['EQ (Error Quotient)'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
+        generalInfo['EQ — compile'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
+    }
+    if (runtimeEqScore !== null) {
+        let rEqLabel = runtimeEqScore < 0.3 ? 'Low' : runtimeEqScore < 0.6 ? 'Medium' : 'High';
+        generalInfo['EQ — runtime'] = runtimeEqScore.toFixed(3) + ' (' + rEqLabel + ')';
+    } else if (eqScore !== null) {
+        generalInfo['EQ — runtime'] = 'N/A';
     }
     if (redScore !== null) {
-        generalInfo['RED (Repeated Error Density)'] = redScore.toFixed(3);
+        generalInfo['RED — compile'] = redScore.toFixed(3);
+    }
+    if (runtimeRedScore !== null) {
+        generalInfo['RED — runtime'] = runtimeRedScore.toFixed(3);
+    } else if (redScore !== null) {
+        generalInfo['RED — runtime'] = 'N/A';
+    }
+    if (timeToFix.length > 0) {
+        let allFixedTimes = timeToFix.filter(t => t.medianSeconds !== null).map(t => t.medianSeconds);
+        if (allFixedTimes.length > 0) {
+            allFixedTimes.sort((a, b) => a - b);
+            let mid = Math.floor(allFixedTimes.length / 2);
+            let overallMedian = allFixedTimes.length % 2 !== 0 ? allFixedTimes[mid] : (allFixedTimes[mid - 1] + allFixedTimes[mid]) / 2;
+            generalInfo['Median time-to-fix'] = overallMedian.toFixed(1) + 's';
+        }
     }
 
     let errorSummary = {};
@@ -916,7 +1069,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         tableRedDetails = `
             <div class="analysed-panel-btn-block" id='redDetails-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseRedDetails-${entryId}" role="button" aria-expanded="false" aria-controls="collapseRedDetails-${entryId}">
-                RED (Repeated Error Density)
+                RED — compile (Repeated Error Density)
                 </a>
                 <div class="collapse" id="collapseRedDetails-${entryId}">
                     <div class="card card-body">
@@ -924,6 +1077,72 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                         <table class="table table-sm">
                         <thead><tr><th>Error Category</th><th>Repeated Pairs</th></tr></thead>
                         <tbody>${redRowsHtml}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // Runtime RED details panel
+    var tableRuntimeRedDetails = '';
+    if (runtimeRedDetails.length > 0) {
+        let runtimeRedRowsHtml = '';
+        let maxRepeats = runtimeRedDetails[0].repeats;
+        for (let d of runtimeRedDetails) {
+            let barWidth = maxRepeats > 0 ? (d.repeats / maxRepeats * 100).toFixed(1) : 0;
+            runtimeRedRowsHtml += `<tr>
+                <td>${d.category}</td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <div style="background:#e9ecef;border-radius:4px;width:100px;height:14px;">
+                            <div style="background:#dc3545;border-radius:4px;width:${barWidth}%;height:100%;"></div>
+                        </div>
+                        <span>${d.repeats}</span>
+                    </div>
+                </td>
+            </tr>`;
+        }
+        tableRuntimeRedDetails = `
+            <div class="analysed-panel-btn-block" id='runtimeRedDetails-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseRuntimeRedDetails-${entryId}" role="button" aria-expanded="false" aria-controls="collapseRuntimeRedDetails-${entryId}">
+                RED — runtime (Repeated Error Density)
+                </a>
+                <div class="collapse" id="collapseRuntimeRedDetails-${entryId}">
+                    <div class="card card-body">
+                        <p>Overall runtime RED: <strong>${runtimeRedScore.toFixed(3)}</strong> — normalized by number of consecutive run pairs. Higher values indicate more consecutive repetition of the same runtime errors (Švábenský et al., 2024).</p>
+                        <table class="table table-sm">
+                        <thead><tr><th>Error Category</th><th>Repeated Pairs</th></tr></thead>
+                        <tbody>${runtimeRedRowsHtml}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // Time-to-Fix panel
+    var tableTimeToFix = '';
+    if (timeToFix.length > 0) {
+        let ttfRowsHtml = '';
+        for (let t of timeToFix) {
+            let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
+            ttfRowsHtml += `<tr>
+                <td>${t.category}</td>
+                <td>${t.count}</td>
+                <td>${medianDisplay}</td>
+                <td>${t.unfixedCount > 0 ? t.unfixedCount : ''}</td>
+            </tr>`;
+        }
+        tableTimeToFix = `
+            <div class="analysed-panel-btn-block" id='timeToFix-${entryId}'>
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseTimeToFix-${entryId}" role="button" aria-expanded="false" aria-controls="collapseTimeToFix-${entryId}">
+                Time-to-Fix by Error Category
+                </a>
+                <div class="collapse" id="collapseTimeToFix-${entryId}">
+                    <div class="card card-body">
+                        <p>Time from an error category's first appearance in a build to its disappearance in a subsequent build (Altadmri &amp; Brown, 2015).</p>
+                        <table class="table table-sm">
+                        <thead><tr><th>Error Category</th><th>Occurrences</th><th>Median Fix Time</th><th>Unfixed</th></tr></thead>
+                        <tbody>${ttfRowsHtml}</tbody>
                         </table>
                     </div>
                 </div>
@@ -963,6 +1182,12 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if (tableRedDetails) {
         $('#'+panelId).append(tableRedDetails);
     }
+    if (tableRuntimeRedDetails) {
+        $('#'+panelId).append(tableRuntimeRedDetails);
+    }
+    if (tableTimeToFix) {
+        $('#'+panelId).append(tableTimeToFix);
+    }
     $('#'+panelId).append(replayerButton);
     $('#'+panelId).append(textGraphButton);
 
@@ -995,8 +1220,11 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'failed build count':buildErrorCount,
         'compile error count':compileErrorCount,
         'runtime error count':runtimeErrorCount,
-        'EQ score': eqScore !== null ? eqScore.toFixed(3) : '',
-        'RED score': redScore !== null ? redScore.toFixed(3) : '',
+        'EQ score (compile)': eqScore !== null ? eqScore.toFixed(3) : '',
+        'RED score (compile)': redScore !== null ? redScore.toFixed(3) : '',
+        'EQ score (runtime)': runtimeEqScore !== null ? runtimeEqScore.toFixed(3) : '',
+        'RED score (runtime)': runtimeRedScore !== null ? runtimeRedScore.toFixed(3) : '',
+        'median time-to-fix (s)': timeToFix.length > 0 ? (() => { let t = timeToFix.filter(x => x.medianSeconds !== null).map(x => x.medianSeconds); if (t.length === 0) return ''; t.sort((a,b) => a-b); let m = Math.floor(t.length/2); return (t.length % 2 !== 0 ? t[m] : (t[m-1]+t[m])/2).toFixed(1); })() : '',
         'time solving till first run (for each program)':"",
         'character count before first run (for each program)':"",
         'character count at the end (for each program)':""
@@ -1197,6 +1425,18 @@ function getDateTimeDiff(dateStart, DateEnd){
 
 function getDateDiffInMinutes(date1, date2) {
     return Math.floor((Math.abs(date2 - date1) / 1000) / 60);
+}
+
+// Makes seconds more readable 
+function formatSeconds(totalSeconds) {
+    let s = Math.round(totalSeconds);
+    if (s < 60) return s + 's';
+    let m = Math.floor(s / 60);
+    let rem = s % 60;
+    if (m < 60) return rem > 0 ? m + 'm ' + rem + 's' : m + 'm';
+    let h = Math.floor(m / 60);
+    m = m % 60;
+    return m > 0 ? h + 'h ' + m + 'm' : h + 'h';
 }
 
 
