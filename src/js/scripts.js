@@ -370,7 +370,7 @@ function generateClassOverview() {
         if (files[entryId] && files[entryId]['timeToFix']) {
             for (let t of files[entryId]['timeToFix']) {
                 if (!ttfByCategory[t.category]) {
-                    ttfByCategory[t.category] = { fixTimes: [], unfixed: 0 };
+                    ttfByCategory[t.category] = { fixTimes: [], unfixed: 0, isOther: t.isOther || false };
                 }
                 if (t.medianSeconds !== null) {
                     ttfByCategory[t.category].fixTimes.push(t.medianSeconds);
@@ -471,7 +471,8 @@ function generateClassOverview() {
             category: cat,
             medianSeconds: medianSeconds,
             count: totalOccurrences,
-            unfixed: ttfByCategory[cat].unfixed
+            unfixed: ttfByCategory[cat].unfixed,
+            isOther: ttfByCategory[cat].isOther
         });
     }
     ttfArray.sort((a, b) => {
@@ -481,12 +482,53 @@ function generateClassOverview() {
         return b.medianSeconds - a.medianSeconds;
     });
 
+    // Merge all "other" entries into one row with top 10 detail sub-table
+    // merge all "other" time-to-fix entries into one row for the class view
+    // individual raw errors would cloud the aggregate view with student-specific noise
+    // keep top 10 by fix time in a details dropdown
+    let otherTtf = ttfArray.filter(t => t.isOther);
+    let normalTtf = ttfArray.filter(t => !t.isOther);
+    if (otherTtf.length > 0) {
+        let allTimes = otherTtf.filter(e => e.medianSeconds !== null).map(e => e.medianSeconds);
+        let otherMedian = null;
+        if (allTimes.length > 0) {
+            allTimes.sort((a, b) => a - b);
+            let mid = Math.floor(allTimes.length / 2);
+            otherMedian = allTimes.length % 2 !== 0 ? allTimes[mid] : (allTimes[mid - 1] + allTimes[mid]) / 2;
+        }
+        normalTtf.push({
+            category: 'other', medianSeconds: otherMedian,
+            count: otherTtf.reduce((s, e) => s + e.count, 0),
+            unfixed: otherTtf.reduce((s, e) => s + e.unfixed, 0),
+            isOther: false,
+            otherDetails: otherTtf.sort((a, b) => (b.medianSeconds || 0) - (a.medianSeconds || 0)).slice(0, 10)
+        });
+        ttfArray = normalTtf;
+        ttfArray.sort((a, b) => {
+            if (a.medianSeconds === null && b.medianSeconds === null) return 0;
+            if (a.medianSeconds === null) return 1;
+            if (b.medianSeconds === null) return -1;
+            return b.medianSeconds - a.medianSeconds;
+        });
+    }
+
     let hardestErrorsHtml = '';
     if (ttfArray.length > 0) {
         let ttfRowsHtml = '';
         for (let t of ttfArray) {
             let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
-            ttfRowsHtml += `<tr><td>${t.category}</td><td>${medianDisplay}</td><td>${t.count}</td><td>${t.unfixed > 0 ? t.unfixed : ''}</td></tr>`;
+            let categoryDisplay = t.category;
+            if (t.otherDetails && t.otherDetails.length > 0) {
+                let detailRows = t.otherDetails.map(d =>
+                    `<tr><td>${sanitizeName(d.category)}</td><td>${d.medianSeconds !== null ? formatSeconds(d.medianSeconds) : '—'}</td><td>${d.count}</td></tr>`
+                ).join('');
+                let detailTable = '<table class="table table-sm mb-0" style="font-size:12px;">'
+                    + '<thead><tr><th>Error</th><th>Median Fix Time</th><th>Occurrences</th></tr></thead>'
+                    + '<tbody>' + detailRows + '</tbody></table>';
+                categoryDisplay = `other <a data-toggle="collapse" href="#collapseTtfOther-overview" style="font-size:11px;">[details]</a>
+                    <div class="collapse" id="collapseTtfOther-overview">${detailTable}</div>`;
+            }
+            ttfRowsHtml += `<tr><td>${categoryDisplay}</td><td>${medianDisplay}</td><td>${t.count}</td><td>${t.unfixed > 0 ? t.unfixed : ''}</td></tr>`;
         }
         hardestErrorsHtml = `
             <div class="analysed-panel-btn-block">
@@ -938,6 +980,16 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         }
     }
 
+    // build a lookup of which error_type values came from "other" category
+    // we use error_type for "other" in metrics to avoid lumping different errors together,
+    // but we need to know which ones to display as "other [details]" in the UI
+    let otherErrorTypes = new Set();
+    for (let b of builds) {
+        for (let e of b.errors) {
+            if (e.error_category === 'other') otherErrorTypes.add(e.error_type);
+        }
+    }
+
     // EQ (Error Quotient) — Jadud 2006
     // Algorithm reference: Price et al. (2020), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/eq.py, adapted for PALG logs
     let eqScore = null;
@@ -1026,6 +1078,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             redDetails.push({ category: cat, repeats: categoryRepeatCount[cat] });
         }
         redDetails.sort((a, b) => b.repeats - a.repeats);
+        // tag entries that came from "other" so we can display them nicely
+        for (let d of redDetails) {
+            d.isOther = otherErrorTypes.has(d.category);
+        }
     }
 
     // Time-to-Fix — Altadmri & Brown (2015)
@@ -1085,6 +1141,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             if (b.medianSeconds === null) return -1;
             return b.medianSeconds - a.medianSeconds;
         });
+        // same tagging for time-to-fix entries
+        for (let t of timeToFix) {
+            t.isOther = otherErrorTypes.has(t.category);
+        }
     }
 
     var generalInfo={
@@ -1279,9 +1339,19 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableRedDetails = '';
     if (redDetails.length > 0) {
         let redRowsHtml = '';
+        let redOtherIdx = 0;
         for (let d of redDetails) {
+            let categoryDisplay;
+            // show "other [details]" instead of the raw java error string
+            if (d.isOther) {
+                let collapseId = `collapseRedOther-${entryId}-${redOtherIdx++}`;
+                categoryDisplay = `other <a data-toggle="collapse" href="#${collapseId}" style="font-size:11px;">[details]</a>
+                    <div class="collapse" id="${collapseId}"><small>${sanitizeName(d.category)}</small></div>`;
+            } else {
+                categoryDisplay = d.category;
+            }
             redRowsHtml += `<tr>
-                <td>${d.category}</td>
+                <td>${categoryDisplay}</td>
                 <td>${d.repeats}</td>
             </tr>`;
         }
@@ -1306,10 +1376,20 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableTimeToFix = '';
     if (timeToFix.length > 0) {
         let ttfRowsHtml = '';
+        let ttfOtherIdx = 0;
         for (let t of timeToFix) {
             let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
+            let categoryDisplay;
+            // show "other [details]" instead of the raw java error string
+            if (t.isOther) {
+                let collapseId = `collapseTtfOther-${entryId}-${ttfOtherIdx++}`;
+                categoryDisplay = `other <a data-toggle="collapse" href="#${collapseId}" style="font-size:11px;">[details]</a>
+                    <div class="collapse" id="${collapseId}"><small>${sanitizeName(t.category)}</small></div>`;
+            } else {
+                categoryDisplay = t.category;
+            }
             ttfRowsHtml += `<tr>
-                <td>${t.category}</td>
+                <td>${categoryDisplay}</td>
                 <td>${t.count}</td>
                 <td>${medianDisplay}</td>
                 <td>${t.unfixedCount > 0 ? t.unfixedCount : ''}</td>
