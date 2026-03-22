@@ -233,10 +233,12 @@ function showLogInputData(){
 function switchListItem(keyEvent){
     if (keyEvent.code=="Tab" || keyEvent.type=="click"){
         if ($("#input-analysis-type")[0].checked){ //Multiple student analysis
-            $('.failid.active').removeClass('active');   
+            $('.failid.active').removeClass('active');
+            $('#class-overview').hide();
+            $('#class-overview-btn').removeClass('active');
         }
-        $(".tab-pane.active").removeClass('active show');   
-        
+        $(".tab-pane.active").removeClass('active show');
+
         if (keyEvent.code=="Tab"){
             $(this).tab('show');
         }
@@ -302,6 +304,287 @@ function toggleLogArea(){
 function clearAnalysisResults(){
     $('#log-analysis-groups').children().remove();
     $('#log-analysis-results').children().remove();
+    $('#class-overview').remove();
+}
+
+// Aggregates error metrics across all students.
+function generateClassOverview() {
+    $('#class-overview').remove();
+
+    let totalStudents = csvValues.length;
+    let eqValues = [];
+    let redValues = [];
+    let totalCompileErrors = 0;
+    let totalRuntimeErrors = 0;
+
+    let compileErrorCats = {};  // category - { count, students: Set }
+    let runtimeErrorCats = {};
+    let otherCompileTypes = {}; // error_type - { count, students: Set }
+    let otherRuntimeTypes = {};
+    let ttfByCategory = {};     // category -{ fixTimes: [], unfixed: 0 }
+
+    // Student rows for EQ 
+    let studentRows = [];
+
+    for (let i = 0; i < csvValues.length; i++) {
+        let csv = csvValues[i];
+        let eq = parseFloat(csv['EQ score']);
+        let red = parseFloat(csv['RED score']);
+        if (!isNaN(eq)) eqValues.push(eq);
+        if (!isNaN(red)) redValues.push(red);
+        totalCompileErrors += parseInt(csv['compile error count']) || 0;
+        totalRuntimeErrors += parseInt(csv['runtime error count']) || 0;
+
+        let studentName = csv['foldername'] || csv['filename'] || '';
+        let entryId = csv['entryId'];
+
+        studentRows.push({
+            name: sanitizeName(studentName),
+            entryId: entryId,
+            eq: isNaN(eq) ? null : eq,
+            red: isNaN(red) ? null : red,
+            failedBuilds: parseInt(csv['failed build count']) || 0,
+            compileErrors: parseInt(csv['compile error count']) || 0
+        });
+
+        if (files[entryId] && files[entryId]['errorAnalysis']) {
+            let events = files[entryId]['errorAnalysis'].errorEvents;
+            for (let e of events) {
+                let target = e.phase === 'compile' ? compileErrorCats : runtimeErrorCats;
+                if (!target[e.error_category]) {
+                    target[e.error_category] = { count: 0, students: new Set() };
+                }
+                target[e.error_category].count++;
+                target[e.error_category].students.add(studentName);
+                if (e.error_category === 'other') {
+                    let otherTarget = e.phase === 'compile' ? otherCompileTypes : otherRuntimeTypes;
+                    if (!otherTarget[e.error_type]) {
+                        otherTarget[e.error_type] = { count: 0, students: new Set() };
+                    }
+                    otherTarget[e.error_type].count++;
+                    otherTarget[e.error_type].students.add(studentName);
+                }
+            }
+        }
+
+        if (files[entryId] && files[entryId]['timeToFix']) {
+            for (let t of files[entryId]['timeToFix']) {
+                if (!ttfByCategory[t.category]) {
+                    ttfByCategory[t.category] = { fixTimes: [], unfixed: 0 };
+                }
+                if (t.medianSeconds !== null) {
+                    ttfByCategory[t.category].fixTimes.push(t.medianSeconds);
+                }
+                ttfByCategory[t.category].unfixed += t.unfixedCount;
+            }
+        }
+    }
+
+    let avgEq = eqValues.length > 0 ? (eqValues.reduce((a, b) => a + b, 0) / eqValues.length) : null;
+    let avgRed = redValues.length > 0 ? (redValues.reduce((a, b) => a + b, 0) / redValues.length) : null;
+    let avgEqLabel = avgEq !== null ? (avgEq < 0.3 ? 'Low' : avgEq < 0.6 ? 'Medium' : 'High') : '';
+
+    let summaryHtml = `
+        <div class="d-flex flex-wrap" style="gap:16px; margin-bottom:20px;">
+            <div class="stat-item"><strong>${totalStudents}</strong><br><small>Students</small></div>
+            <div class="stat-item"><strong>${avgEq !== null ? avgEq.toFixed(3) + ' (' + avgEqLabel + ')' : 'N/A'}</strong><br><small>Avg EQ</small></div>
+            <div class="stat-item"><strong>${avgRed !== null ? avgRed.toFixed(3) : 'N/A'}</strong><br><small>Avg RED</small></div>
+            <div class="stat-item"><strong>${totalCompileErrors}</strong><br><small>Compile Errors</small></div>
+            <div class="stat-item"><strong>${totalRuntimeErrors}</strong><br><small>Runtime Errors</small></div>
+        </div>`;
+
+    // Helper to build an error category table
+    function buildErrorTable(catObj, otherTypesObj, collapseIdPrefix, title) {
+        let arr = [];
+        for (let cat in catObj) {
+            arr.push({
+                category: cat,
+                count: catObj[cat].count,
+                studentCount: catObj[cat].students.size,
+                pct: (catObj[cat].students.size / totalStudents * 100).toFixed(0)
+            });
+        }
+        arr.sort((a, b) => b.count - a.count);
+        if (arr.length === 0) return '';
+
+        let visibleRows = '';
+        let hiddenRows = '';
+        for (let i = 0; i < arr.length; i++) {
+            let e = arr[i];
+            let row;
+            if (e.category === 'other' && otherTypesObj && Object.keys(otherTypesObj).length > 0) {
+                let otherList = '<table class="table table-sm table-hover mb-0" style="font-size:12px;">'
+                    + '<thead><tr><th>Error Type</th><th>Count</th><th>Students</th></tr></thead><tbody>'
+                    + Object.entries(otherTypesObj)
+                        .sort((a, b) => b[1].count - a[1].count)
+                        .map(([type, data]) => `<tr><td>${sanitizeName(type)}</td><td>${data.count}</td><td>${data.students.size}</td></tr>`)
+                        .join('')
+                    + '</tbody></table>';
+                let detailsId = `${collapseIdPrefix}-other-details`;
+                row = `<tr><td>${e.category} <a data-toggle="collapse" href="#${detailsId}" style="font-size:11px;">[details]</a>
+                    <div class="collapse" id="${detailsId}">${otherList}</div></td>
+                    <td>${e.count}</td><td>${e.studentCount}</td><td>${e.pct}%</td></tr>`;
+            } else {
+                row = `<tr><td>${e.category}</td><td>${e.count}</td><td>${e.studentCount}</td><td>${e.pct}%</td></tr>`;
+            }
+            if (i < 15) visibleRows += row;
+            else hiddenRows += row;
+        }
+        let showAllBtn = hiddenRows ? `
+            <a class="btn btn-sm btn-outline-secondary mt-2" data-toggle="collapse" href="#${collapseIdPrefix}-all">
+                Show all (${arr.length})
+            </a>` : '';
+        return `
+            <div class="analysed-panel-btn-block">
+                <a class="btn btn-primary" data-toggle="collapse" href="#${collapseIdPrefix}">
+                    ${title} (${arr.length} categories)
+                </a>
+                <div class="collapse" id="${collapseIdPrefix}">
+                    <div class="card card-body">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Error Category</th><th>Occurrences</th><th>Students</th><th>% of Class</th></tr></thead>
+                            <tbody>${visibleRows}</tbody>
+                        </table>
+                        ${hiddenRows ? `<div class="collapse" id="${collapseIdPrefix}-all">
+                            <table class="table table-sm table-hover"><tbody>${hiddenRows}</tbody></table>
+                        </div>${showAllBtn}` : ''}
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    let compileErrorsHtml = buildErrorTable(compileErrorCats, otherCompileTypes, 'collapseCompileErrors-overview', 'Most Common Compile Errors');
+    let runtimeErrorsHtml = buildErrorTable(runtimeErrorCats, otherRuntimeTypes, 'collapseRuntimeErrors-overview', 'Most Common Runtime Errors');
+
+    // Hardest Errors to Fix table
+    let ttfArray = [];
+    for (let cat in ttfByCategory) {
+        let times = ttfByCategory[cat].fixTimes;
+        let medianSeconds = null;
+        let totalOccurrences = times.length + ttfByCategory[cat].unfixed;
+        if (times.length > 0) {
+            times.sort((a, b) => a - b);
+            let mid = Math.floor(times.length / 2);
+            medianSeconds = times.length % 2 !== 0 ? times[mid] : (times[mid - 1] + times[mid]) / 2;
+        }
+        ttfArray.push({
+            category: cat,
+            medianSeconds: medianSeconds,
+            count: totalOccurrences,
+            unfixed: ttfByCategory[cat].unfixed
+        });
+    }
+    ttfArray.sort((a, b) => {
+        if (a.medianSeconds === null && b.medianSeconds === null) return 0;
+        if (a.medianSeconds === null) return 1;
+        if (b.medianSeconds === null) return -1;
+        return b.medianSeconds - a.medianSeconds;
+    });
+
+    let hardestErrorsHtml = '';
+    if (ttfArray.length > 0) {
+        let ttfRowsHtml = '';
+        for (let t of ttfArray) {
+            let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
+            ttfRowsHtml += `<tr><td>${t.category}</td><td>${medianDisplay}</td><td>${t.count}</td><td>${t.unfixed > 0 ? t.unfixed : ''}</td></tr>`;
+        }
+        hardestErrorsHtml = `
+            <div class="analysed-panel-btn-block">
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseHardestErrors-overview">
+                    Hardest Errors to Fix
+                </a>
+                <div class="collapse" id="collapseHardestErrors-overview">
+                    <div class="card card-body">
+                        <p>Class-wide median time-to-fix per error category, aggregated across all students.</p>
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Error Category</th><th>Median Fix Time</th><th>Occurrences</th><th>Unfixed</th></tr></thead>
+                            <tbody>${ttfRowsHtml}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // Students by EQ table
+    studentRows.sort((a, b) => {
+        if (a.eq === null && b.eq === null) return 0;
+        if (a.eq === null) return 1;
+        if (b.eq === null) return -1;
+        return b.eq - a.eq;
+    });
+
+    let studentRowsHtml = '';
+    for (let s of studentRows) {
+        let bgColor = '';
+        if (s.eq !== null) {
+            bgColor = s.eq >= 0.6 ? 'background-color:#f8d7da;' : s.eq >= 0.3 ? 'background-color:#fff3cd;' : 'background-color:#d4edda;';
+        }
+        let eqDisplay = s.eq !== null ? s.eq.toFixed(3) : '';
+        let redDisplay = s.red !== null ? s.red.toFixed(3) : '';
+        let nameLink = `<a href="#" onclick="scrollToStudent('${s.entryId}'); return false;" style="text-decoration:underline;">${s.name}</a>`;
+        studentRowsHtml += `<tr style="${bgColor}">
+            <td>${nameLink}</td><td>${eqDisplay}</td><td>${redDisplay}</td>
+            <td>${s.failedBuilds}</td><td>${s.compileErrors}</td>
+        </tr>`;
+    }
+
+    let studentsTableHtml = `
+        <div class="analysed-panel-btn-block">
+            <a class="btn btn-primary" data-toggle="collapse" href="#collapseStudentEq-overview">
+                Students by EQ Score (${studentRows.length})
+            </a>
+            <div class="collapse" id="collapseStudentEq-overview">
+                <div class="card card-body">
+                    <table class="table table-sm table-hover">
+                        <thead><tr><th>Student</th><th>EQ</th><th>RED</th><th>Failed Builds</th><th>Compile Errors</th></tr></thead>
+                        <tbody>${studentRowsHtml}</tbody>
+                    </table>
+                </div>
+            </div>
+        </div>`;
+
+    // Build the overview 
+    let overviewHtml = `
+        <div id="class-overview" class="card mb-4" style="display:none;">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Overview</h5>
+            </div>
+            <div class="card-body">
+                ${summaryHtml}
+                ${compileErrorsHtml}
+                ${runtimeErrorsHtml}
+                ${hardestErrorsHtml}
+                ${studentsTableHtml}
+            </div>
+        </div>`;
+
+    $('#log-analysis-results').prepend(overviewHtml);
+    $('#class-overview-btn').prop('disabled', false);
+    showClassOverview();
+}
+
+// Shows overview panel and hides individual student panels 
+function showClassOverview() {
+    $('.tab-pane').removeClass('show active');
+    $('.failid.active').removeClass('active');
+    $('#class-overview').show();
+    $('#class-overview-btn').addClass('active');
+    $(window).scrollTop(0);
+}
+
+// Navigates to a students individual analysis  
+function scrollToStudent(entryId) {
+    $('#class-overview').hide();
+    $('#class-overview-btn').removeClass('active');
+    let listItem = $('[aria-controls="' + entryId + '"]');
+    if (listItem.length) {
+        let parentCollapse = listItem.closest('.student-folder-files');
+        if (parentCollapse.length && !parentCollapse.hasClass('show')) {
+            parentCollapse.collapse('show');
+        }
+        listItem.click();
+        listItem[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 function getLogFile() {
@@ -368,6 +651,10 @@ function fileSubmit(){
             for(let i=0;i<errorAnalysing.length;i++){
                 $('#alert-error-list').append(`<li>${errorAnalysing[i]}</li>`);
             }
+        }
+
+        if($("#input-analysis-type")[0].checked && csvValues.length > 0) {
+            generateClassOverview();
         }
     }, 5000);
 
@@ -547,7 +834,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     let errorEvents=[];
     let buildCount=0;
     let buildErrorCount=0;
-    let javaRunCount=0;
     for(let i=0;i<jsonLog.length;i++){
         if(jsonLog[i].sequence==='ShellCommand'
             && jsonLog[i].command_text.slice(0,4)==='%Run'){
@@ -616,7 +902,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             }
         }
         if(jsonLog[i].sequence==='RunStart'){
-            javaRunCount++;
             runCount++;
             runs.push({
                 run_id: jsonLog[i].run_id,
@@ -635,16 +920,19 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         }
         if(jsonLog[i].sequence==='ErrorNormalized'){
             errorEvents.push(jsonLog[i]);
-            if(jsonLog[i].build_id){
-                let build = builds.find(b => b.build_id === jsonLog[i].build_id);
-                if(build){
-                    build.errors.push(jsonLog[i]);
+            // Only count actual errors (not warnings) for metrics
+            if(jsonLog[i].severity === 'error'){
+                if(jsonLog[i].build_id){
+                    let build = builds.find(b => b.build_id === jsonLog[i].build_id);
+                    if(build){
+                        build.errors.push(jsonLog[i]);
+                    }
                 }
-            }
-            if(jsonLog[i].run_id){
-                let run = runs.find(r => r.run_id === jsonLog[i].run_id);
-                if(run){
-                    run.errors.push(jsonLog[i]);
+                if(jsonLog[i].run_id){
+                    let run = runs.find(r => r.run_id === jsonLog[i].run_id);
+                    if(run){
+                        run.errors.push(jsonLog[i]);
+                    }
                 }
             }
         }
@@ -675,8 +963,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 score_delta += 8;
 
                 // Get the set of errors shared by both compiles
-                let e1_types = new Set(e1_errors.map(e => e.error_category));
-                let e2_types = new Set(e2_errors.map(e => e.error_category));
+                let e1_types = new Set(e1_errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+                let e2_types = new Set(e2_errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
                 let shared_errors = new Set([...e1_types].filter(x => e2_types.has(x)));
                 if (shared_errors.size > 0) {
                     score_delta += 3;
@@ -703,8 +991,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             let e1_errors = builds[i - 1].errors;
             let e2_errors = builds[i].errors;
 
-            let e1_types = new Set(e1_errors.map(e => e.error_category));
-            let e2_types = new Set(e2_errors.map(e => e.error_category));
+            let e1_types = new Set(e1_errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+            let e2_types = new Set(e2_errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
             let shared_errors = new Set([...e1_types].filter(x => e2_types.has(x)));
 
             if (shared_errors.size > 0) {
@@ -740,73 +1028,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         redDetails.sort((a, b) => b.repeats - a.repeats);
     }
 
-    // Runtime EQ 
-    let runtimeEqScore = null;
-    let runtimeRunPairs = [];
-    for (let i = 0; i < runs.length - 1; i++) {
-        runtimeRunPairs.push([i, i + 1]);
-    }
-    if (runtimeRunPairs.length > 0) {
-        let score = 0;
-        for (let pair of runtimeRunPairs) {
-            let r1_errors = runs[pair[0]].errors;
-            let r2_errors = runs[pair[1]].errors;
-            let score_delta = 0;
-            if (r1_errors.length > 0 && r2_errors.length > 0) {
-                score_delta += 8;
-                let r1_types = new Set(r1_errors.map(e => e.error_category));
-                let r2_types = new Set(r2_errors.map(e => e.error_category));
-                let shared = new Set([...r1_types].filter(x => r2_types.has(x)));
-                if (shared.size > 0) {
-                    score_delta += 3;
-                }
-            }
-            score += score_delta / 11;
-        }
-        runtimeEqScore = score / runtimeRunPairs.length;
-    }
-    if (runs.every(r => r.errors.length === 0)) runtimeEqScore = null;
-
-    // Runtime RED 
-    let runtimeRedScore = null;
-    let runtimeRedDetails = [];
-    if (runs.length >= 2) {
-        let red = 0;
-        let divisor = 0;
-        let repeated = 0;
-        let categoryRepeatCount = {};
-        for (let i = 1; i < runs.length; i++) {
-            divisor += 1;
-            let r1_errors = runs[i - 1].errors;
-            let r2_errors = runs[i].errors;
-            let r1_types = new Set(r1_errors.map(e => e.error_category));
-            let r2_types = new Set(r2_errors.map(e => e.error_category));
-            let shared = new Set([...r1_types].filter(x => r2_types.has(x)));
-            if (shared.size > 0) {
-                repeated += 1;
-                for (let c of shared) {
-                    categoryRepeatCount[c] = (categoryRepeatCount[c] || 0) + 1;
-                }
-            } else {
-                if (repeated > 0) {
-                    red += (repeated ** 2) / (repeated + 1);
-                }
-                repeated = 0;
-            }
-        }
-        if (repeated > 0) {
-            red += (repeated ** 2) / (repeated + 1);
-        }
-        if (divisor > 0) {
-            runtimeRedScore = red / divisor;
-        }
-        for (let cat in categoryRepeatCount) {
-            runtimeRedDetails.push({ category: cat, repeats: categoryRepeatCount[cat] });
-        }
-        runtimeRedDetails.sort((a, b) => b.repeats - a.repeats);
-    }
-    if (runs.every(r => r.errors.length === 0)) runtimeRedScore = null;
-
     // Time-to-Fix — Altadmri & Brown (2015)
     // For each error_category appearing in a build, scan forward until it disappears
     let timeToFix = [];
@@ -814,17 +1035,17 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         // Collect all fix times grouped by category
         let fixTimesByCategory = {};
         for (let i = 0; i < builds.length; i++) {
-            let categories = new Set(builds[i].errors.map(e => e.error_category));
+            let categories = new Set(builds[i].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
             // Skip builds with no errors
             if (categories.size === 0) continue;
             // For each category in this build, check if it's a new appearance
-            let prevCategories = i > 0 ? new Set(builds[i - 1].errors.map(e => e.error_category)) : new Set();
+            let prevCategories = i > 0 ? new Set(builds[i - 1].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category)) : new Set();
             for (let cat of categories) {
                 if (i > 0 && prevCategories.has(cat)) continue; // continuation, not new appearance
                 // New appearance of this category, scan forward for resolution
                 let resolved = false;
                 for (let j = i + 1; j < builds.length; j++) {
-                    let jCategories = new Set(builds[j].errors.map(e => e.error_category));
+                    let jCategories = new Set(builds[j].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
                     if (!jCategories.has(cat)) {
                         // Resolved at build j
                         let fixTime = (new Date(builds[j].time) - new Date(builds[i].time)) / 1000;
@@ -879,8 +1100,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'Files opened':[...filesOpened  ].join('<br>')
     }
 
-    let compileErrorCount = errorEvents.filter(e => e.phase === 'compile').length;
-    let runtimeErrorCount = errorEvents.filter(e => e.phase === 'runtime').length;
+    let compileErrorCount = errorEvents.filter(e => e.phase === 'compile' && e.severity === 'error').length;
+    let runtimeErrorCount = errorEvents.filter(e => e.phase === 'runtime' && e.severity === 'error').length;
     if(buildCount > 0){
         generalInfo['Build count'] = buildCount;
         generalInfo['Failed builds'] = buildErrorCount;
@@ -889,21 +1110,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     }
     if (eqScore !== null) {
         let eqLabel = eqScore < 0.3 ? 'Low' : eqScore < 0.6 ? 'Medium' : 'High';
-        generalInfo['EQ — compile'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
-    }
-    if (runtimeEqScore !== null) {
-        let rEqLabel = runtimeEqScore < 0.3 ? 'Low' : runtimeEqScore < 0.6 ? 'Medium' : 'High';
-        generalInfo['EQ — runtime'] = runtimeEqScore.toFixed(3) + ' (' + rEqLabel + ')';
-    } else if (eqScore !== null) {
-        generalInfo['EQ — runtime'] = 'N/A';
+        generalInfo['EQ (Error Quotient)'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
     }
     if (redScore !== null) {
-        generalInfo['RED — compile'] = redScore.toFixed(3);
-    }
-    if (runtimeRedScore !== null) {
-        generalInfo['RED — runtime'] = runtimeRedScore.toFixed(3);
-    } else if (redScore !== null) {
-        generalInfo['RED — runtime'] = 'N/A';
+        generalInfo['RED (Repeated Error Density)'] = redScore.toFixed(3);
     }
     if (timeToFix.length > 0) {
         let allFixedTimes = timeToFix.filter(t => t.medianSeconds !== null).map(t => t.medianSeconds);
@@ -919,23 +1129,57 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if (errorEvents.length > 0) {
         let compileErrors = {};
         let runtimeErrors = {};
+        let otherCompileTypes = {};
+        let otherRuntimeTypes = {};
         for (let e of errorEvents) {
             if (e.phase === 'compile') {
                 compileErrors[e.error_category] = (compileErrors[e.error_category] || 0) + 1;
+                if (e.error_category === 'other') {
+                    otherCompileTypes[e.error_type] = (otherCompileTypes[e.error_type] || 0) + 1;
+                }
             } else if (e.phase === 'runtime') {
                 runtimeErrors[e.error_category] = (runtimeErrors[e.error_category] || 0) + 1;
+                if (e.error_category === 'other') {
+                    otherRuntimeTypes[e.error_type] = (otherRuntimeTypes[e.error_type] || 0) + 1;
+                }
             }
         }
         if (Object.keys(compileErrors).length > 0) {
             errorSummary['<strong>Compile errors</strong>'] = '';
             for (let cat in compileErrors) {
-                errorSummary[cat] = compileErrors[cat];
+                if (cat === 'other') {
+                    let otherList = '<table class="table table-sm mb-0" style="font-size:12px;">'
+                        + '<thead><tr><th>Error Type</th><th>Count</th></tr></thead><tbody>'
+                        + Object.entries(otherCompileTypes)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, cnt]) => `<tr><td>${sanitizeName(type)}</td><td>${cnt}</td></tr>`)
+                            .join('')
+                        + '</tbody></table>';
+                    let collapseId = `collapseOtherCompile-${entryId}`;
+                    errorSummary[cat] = `${compileErrors[cat]} <a data-toggle="collapse" href="#${collapseId}" style="font-size:11px;">[details]</a>
+                        <div class="collapse" id="${collapseId}">${otherList}</div>`;
+                } else {
+                    errorSummary[cat] = compileErrors[cat];
+                }
             }
         }
         if (Object.keys(runtimeErrors).length > 0) {
             errorSummary['<strong>Runtime errors</strong>'] = '';
             for (let cat in runtimeErrors) {
-                errorSummary[cat] = runtimeErrors[cat];
+                if (cat === 'other') {
+                    let otherList = '<table class="table table-sm mb-0" style="font-size:12px;">'
+                        + '<thead><tr><th>Error Type</th><th>Count</th></tr></thead><tbody>'
+                        + Object.entries(otherRuntimeTypes)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, cnt]) => `<tr><td>${sanitizeName(type)}</td><td>${cnt}</td></tr>`)
+                            .join('')
+                        + '</tbody></table>';
+                    let collapseId = `collapseOtherRuntime-${entryId}`;
+                    errorSummary[cat] = `${runtimeErrors[cat]} <a data-toggle="collapse" href="#${collapseId}" style="font-size:11px;">[details]</a>
+                        <div class="collapse" id="${collapseId}">${otherList}</div>`;
+                } else {
+                    errorSummary[cat] = runtimeErrors[cat];
+                }
             }
         }
     }
@@ -945,7 +1189,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     if (builds.length > 0) {
         for (let b of builds) {
             let time = getDateAsLocaleString(b.time);
-            let status = b.success === true ? '✓ Success' : b.success === false ? '✗ Failed' : '? Unknown';
+            let status = b.success === true ? 'Success' : b.success === false ? 'Failed' : '? Unknown';
             let statusClass = b.success === true ? 'text-success' : b.success === false ? 'text-danger' : '';
             let details = '';
             if (b.error_count > 0) {
@@ -965,7 +1209,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
 
     var idGeneralInfo=`tableGeneralInfo-${entryId}`;
     var idCopyPaste=`tableCopyPaste-${entryId}`;
-    var idErrors=`tableErrors-${entryId}`;
 
     var tableGeneralInfo=`
                 <div class="table-container" id="general-info-block">
@@ -987,21 +1230,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 <div class="collapse" id="collapseCopyPaste-${entryId}">
                     <div class="card card-body">
                         <table class="table" id='${idCopyPaste}'>
-                        <tbody>
-                            
-                        </tbody>
-                        </table>  
-                    </div>
-                </div>
-            </div>`;
-    var tableErrors=`
-            <div class="analysed-panel-btn-block" id='errorTexts-${entryId}'>
-                <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrors-${entryId}" role="button" aria-expanded="false" aria-controls="collapseErrors-${entryId}">
-                Errors (${errors.total})
-                </a>
-                <div class="collapse" id="collapseErrors-${entryId}">
-                    <div class="card card-body">
-                        <table class="table" id='${idErrors}'>
                         <tbody>
                             
                         </tbody>
@@ -1051,25 +1279,16 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableRedDetails = '';
     if (redDetails.length > 0) {
         let redRowsHtml = '';
-        let maxRepeats = redDetails[0].repeats; // sorted descending
         for (let d of redDetails) {
-            let barWidth = maxRepeats > 0 ? (d.repeats / maxRepeats * 100).toFixed(1) : 0;
             redRowsHtml += `<tr>
                 <td>${d.category}</td>
-                <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="background:#e9ecef;border-radius:4px;width:100px;height:14px;">
-                            <div style="background:#dc3545;border-radius:4px;width:${barWidth}%;height:100%;"></div>
-                        </div>
-                        <span>${d.repeats}</span>
-                    </div>
-                </td>
+                <td>${d.repeats}</td>
             </tr>`;
         }
         tableRedDetails = `
             <div class="analysed-panel-btn-block" id='redDetails-${entryId}'>
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseRedDetails-${entryId}" role="button" aria-expanded="false" aria-controls="collapseRedDetails-${entryId}">
-                RED — compile (Repeated Error Density)
+                RED (Repeated Error Density)
                 </a>
                 <div class="collapse" id="collapseRedDetails-${entryId}">
                     <div class="card card-body">
@@ -1077,42 +1296,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                         <table class="table table-sm">
                         <thead><tr><th>Error Category</th><th>Repeated Pairs</th></tr></thead>
                         <tbody>${redRowsHtml}</tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>`;
-    }
-
-    // Runtime RED details panel
-    var tableRuntimeRedDetails = '';
-    if (runtimeRedDetails.length > 0) {
-        let runtimeRedRowsHtml = '';
-        let maxRepeats = runtimeRedDetails[0].repeats;
-        for (let d of runtimeRedDetails) {
-            let barWidth = maxRepeats > 0 ? (d.repeats / maxRepeats * 100).toFixed(1) : 0;
-            runtimeRedRowsHtml += `<tr>
-                <td>${d.category}</td>
-                <td>
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <div style="background:#e9ecef;border-radius:4px;width:100px;height:14px;">
-                            <div style="background:#dc3545;border-radius:4px;width:${barWidth}%;height:100%;"></div>
-                        </div>
-                        <span>${d.repeats}</span>
-                    </div>
-                </td>
-            </tr>`;
-        }
-        tableRuntimeRedDetails = `
-            <div class="analysed-panel-btn-block" id='runtimeRedDetails-${entryId}'>
-                <a class="btn btn-primary" data-toggle="collapse" href="#collapseRuntimeRedDetails-${entryId}" role="button" aria-expanded="false" aria-controls="collapseRuntimeRedDetails-${entryId}">
-                RED — runtime (Repeated Error Density)
-                </a>
-                <div class="collapse" id="collapseRuntimeRedDetails-${entryId}">
-                    <div class="card card-body">
-                        <p>Overall runtime RED: <strong>${runtimeRedScore.toFixed(3)}</strong> — normalized by number of consecutive run pairs. Higher values indicate more consecutive repetition of the same runtime errors (Švábenský et al., 2024).</p>
-                        <table class="table table-sm">
-                        <thead><tr><th>Error Category</th><th>Repeated Pairs</th></tr></thead>
-                        <tbody>${runtimeRedRowsHtml}</tbody>
                         </table>
                     </div>
                 </div>
@@ -1139,7 +1322,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 </a>
                 <div class="collapse" id="collapseTimeToFix-${entryId}">
                     <div class="card card-body">
-                        <p>Time from an error category's first appearance in a build to its disappearance in a subsequent build (Altadmri &amp; Brown, 2015).</p>
+                        <p>Time from an error category's first appearance in a build to its disappearance in a subsequent build.</p>
                         <table class="table table-sm">
                         <thead><tr><th>Error Category</th><th>Occurrences</th><th>Median Fix Time</th><th>Unfixed</th></tr></thead>
                         <tbody>${ttfRowsHtml}</tbody>
@@ -1171,30 +1354,37 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
 
     $('#'+panelId).append(tableGeneralInfo);
     $('#'+panelId).append(tableCopyPaste);
-    $('#'+panelId).append(tableErrors);
-    if (tableErrorSummary) {
-        $('#'+panelId).append(tableErrorSummary);
-        displayDataTable(idErrorSummary, errorSummary);
+
+    let hasErrorAnalysis = tableErrorSummary || tableBuildHistory || tableRedDetails || tableTimeToFix;
+    if (hasErrorAnalysis) {
+        let errorAnalysisSection = `
+            <div class="analysed-panel-btn-block" id="errorAnalysis-${entryId}">
+                <a class="btn btn-primary" data-toggle="collapse" href="#collapseErrorAnalysis-${entryId}"
+                   role="button" aria-expanded="false" aria-controls="collapseErrorAnalysis-${entryId}">
+                    Error Analysis
+                </a>
+                <div class="collapse" id="collapseErrorAnalysis-${entryId}">
+                    <div class="card card-body error-analysis-section">
+                    </div>
+                </div>
+            </div>`;
+        $('#'+panelId).append(errorAnalysisSection);
+
+        let $container = $(`#collapseErrorAnalysis-${entryId} .card-body`);
+        if (tableErrorSummary) {
+            $container.append(tableErrorSummary);
+            displayDataTable(idErrorSummary, errorSummary);
+        }
+        if (tableBuildHistory) $container.append(tableBuildHistory);
+        if (tableRedDetails) $container.append(tableRedDetails);
+        if (tableTimeToFix) $container.append(tableTimeToFix);
     }
-    if (tableBuildHistory) {
-        $('#'+panelId).append(tableBuildHistory);
-    }
-    if (tableRedDetails) {
-        $('#'+panelId).append(tableRedDetails);
-    }
-    if (tableRuntimeRedDetails) {
-        $('#'+panelId).append(tableRuntimeRedDetails);
-    }
-    if (tableTimeToFix) {
-        $('#'+panelId).append(tableTimeToFix);
-    }
+
     $('#'+panelId).append(replayerButton);
     $('#'+panelId).append(textGraphButton);
 
     displayDataTable(idGeneralInfo,generalInfo);
     displayDataTable(idCopyPaste,pasted.texts);
-    displayDataTable(idErrors,errors.texts);
-
     $('#btn-open-replayer-'+entryId).click(readAnalysedFile);
     $('#btn-open-text-graph-'+entryId).click(readAnalysedFile);
 
@@ -1220,10 +1410,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'failed build count':buildErrorCount,
         'compile error count':compileErrorCount,
         'runtime error count':runtimeErrorCount,
-        'EQ score (compile)': eqScore !== null ? eqScore.toFixed(3) : '',
-        'RED score (compile)': redScore !== null ? redScore.toFixed(3) : '',
-        'EQ score (runtime)': runtimeEqScore !== null ? runtimeEqScore.toFixed(3) : '',
-        'RED score (runtime)': runtimeRedScore !== null ? runtimeRedScore.toFixed(3) : '',
+        'EQ score': eqScore !== null ? eqScore.toFixed(3) : '',
+        'RED score': redScore !== null ? redScore.toFixed(3) : '',
         'median time-to-fix (s)': timeToFix.length > 0 ? (() => { let t = timeToFix.filter(x => x.medianSeconds !== null).map(x => x.medianSeconds); if (t.length === 0) return ''; t.sort((a,b) => a-b); let m = Math.floor(t.length/2); return (t.length % 2 !== 0 ? t[m] : (t[m-1]+t[m])/2).toFixed(1); })() : '',
         'time solving till first run (for each program)':"",
         'character count before first run (for each program)':"",
@@ -1237,6 +1425,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     files[entryId]['fileName']=nameObject.fileName;
     files[entryId]['fileAnalysisResults']=fileAnalysisResults;
     files[entryId]['errorAnalysis']={builds, runs, errorEvents};
+    files[entryId]['timeToFix'] = timeToFix;
 }
 
 /**
@@ -1263,7 +1452,7 @@ function getNameObject(file, isZipObject = false, path=''){
         return {'fileName':fileName,
                 'folderName':firstFolderName,
                 'folderNameId':firstFolderName.replace(/ |\./ig,'-'),
-                'multipleStudentId':`student-${firstFolder.replace(/[^a-z0-9-_:.]/g, '_')}`}
+                'multipleStudentId':`student-${firstFolder.replace(/[^a-z0-9-_]/g, '_')}`}
     }else{
         return {'filename':fileName}
     }
@@ -1306,7 +1495,9 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
 
     if (typeOfAnalysis){ //Multiple student analysis
         if(tabList[0].childElementCount===0){//first entry
+            var overviewBtn = `<button id="class-overview-btn" class="btn btn-primary btn-block mb-2" disabled onclick="showClassOverview();">Overview</button>`;
             var accordion=`<div class="accordion" id="multiple-student-list"></div>`;
+            tabList.append(overviewBtn);
             tabList.append(accordion);
         }
         tabList=$('#multiple-student-list');
@@ -1379,7 +1570,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
         $(`#list-${entryId}-list`).click(switchListItem);
     }
 
-    if(!$('.failid').first().hasClass('active')){ //turn first file on
+    if(!$('.failid').first().hasClass('active') && !$('#class-overview').is(':visible')){ //turn first file on
         if (typeOfAnalysis && $('.failid').first().is(":hidden")){ //Multiple student analysis
             $('.student-folder-files.show').removeClass('show');
             $('.student-folder-files').first().addClass('show');

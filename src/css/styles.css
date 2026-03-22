@@ -110,6 +110,25 @@ body {
     margin-bottom: 30px;
 }
 
+#class-overview{
+    margin-bottom: 20px;
+}
+
+#class-overview .stat-item{
+    text-align: center;
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.error-analysis-section{
+    padding: 12px;
+}
+
+.error-analysis-section .analysed-panel-btn-block:last-child{
+    margin-bottom: 0;
+}
+
 .input-analysis-type-div, #log-input-area, #log-button-div{
     margin-bottom: 20px;    
 }
