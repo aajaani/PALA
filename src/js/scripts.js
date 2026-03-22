@@ -305,6 +305,7 @@ function clearAnalysisResults(){
     $('#log-analysis-groups').children().remove();
     $('#log-analysis-results').children().remove();
     $('#class-overview').remove();
+    $('#class-overview-btn').prop('disabled', true).removeClass('active');
 }
 
 // Aggregates error metrics across all students.
@@ -482,9 +483,7 @@ function generateClassOverview() {
         return b.medianSeconds - a.medianSeconds;
     });
 
-    // Merge all "other" entries into one row with top 10 detail sub-table
-    // merge all "other" time-to-fix entries into one row for the class view
-    // individual raw errors would cloud the aggregate view with student-specific noise
+    // merge all "other" time-to-fix entries into one row for the class view (having the student specific "other" errors messes with aggregate view)
     // keep top 10 by fix time in a details dropdown
     let otherTtf = ttfArray.filter(t => t.isOther);
     let normalTtf = ttfArray.filter(t => !t.isOther);
@@ -589,7 +588,7 @@ function generateClassOverview() {
     let overviewHtml = `
         <div id="class-overview" class="card mb-4" style="display:none;">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Overview</h5>
+                <h5 class="mb-0">Error Overview</h5>
             </div>
             <div class="card-body">
                 ${summaryHtml}
@@ -1575,9 +1574,7 @@ function addLogAnalysisEntry( entryId, panelId, file, isZipObject = false, path=
 
     if (typeOfAnalysis){ //Multiple student analysis
         if(tabList[0].childElementCount===0){//first entry
-            var overviewBtn = `<button id="class-overview-btn" class="btn btn-primary btn-block mb-2" disabled onclick="showClassOverview();">Overview</button>`;
             var accordion=`<div class="accordion" id="multiple-student-list"></div>`;
-            tabList.append(overviewBtn);
             tabList.append(accordion);
         }
         tabList=$('#multiple-student-list');
