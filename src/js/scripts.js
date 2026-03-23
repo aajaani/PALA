@@ -312,71 +312,177 @@ function clearAnalysisResults(){
 function generateClassOverview() {
     $('#class-overview').remove();
 
-    let totalStudents = csvValues.length;
     let eqValues = [];
     let redValues = [];
     let totalCompileErrors = 0;
     let totalRuntimeErrors = 0;
 
-    let compileErrorCats = {};  // category - { count, students: Set }
+    let compileErrorCats = {};  // category -> { count, students: Set }
     let runtimeErrorCats = {};
-    let otherCompileTypes = {}; // error_type - { count, students: Set }
+    let otherCompileTypes = {}; // error_type -> { count, students: Set }
     let otherRuntimeTypes = {};
-    let ttfByCategory = {};     // category -{ fixTimes: [], unfixed: 0 }
+    let ttfByCategory = {};     // category -> { fixTimes: [], unfixed: 0 }
 
-    // Student rows for EQ 
     let studentRows = [];
 
+    // group files by student (foldername), one student can have multiple log files
+    let studentGroups = {};
     for (let i = 0; i < csvValues.length; i++) {
         let csv = csvValues[i];
-        let eq = parseFloat(csv['EQ score']);
-        let red = parseFloat(csv['RED score']);
-        if (!isNaN(eq)) eqValues.push(eq);
-        if (!isNaN(red)) redValues.push(red);
-        totalCompileErrors += parseInt(csv['compile error count']) || 0;
-        totalRuntimeErrors += parseInt(csv['runtime error count']) || 0;
-
         let studentName = csv['foldername'] || csv['filename'] || '';
-        let entryId = csv['entryId'];
+        if (!studentGroups[studentName]) {
+            studentGroups[studentName] = [];
+        }
+        studentGroups[studentName].push({ csv, entryId: csv['entryId'] });
+    }
+
+    let totalStudents = Object.keys(studentGroups).length;
+
+    for (let studentName in studentGroups) {
+        let group = studentGroups[studentName];
+        let entryIds = group.map(g => g.entryId);
+
+        // collect all builds from all files for this student, sorted chronologically
+        let allBuilds = [];
+        for (let eid of entryIds) {
+            if (files[eid] && files[eid]['errorAnalysis']) {
+                allBuilds.push(...files[eid]['errorAnalysis'].builds);
+            }
+        }
+        allBuilds.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+        // recompute eq and red from merged builds across all files for this student
+        // time-to-fix stays since cross-session time gaps would inflate fix times
+        let studentEq = null;
+        if (allBuilds.length >= 2) {
+            let score = 0;
+            let pairs = allBuilds.length - 1;
+            for (let i = 0; i < pairs; i++) {
+                let e1 = allBuilds[i].errors;
+                let e2 = allBuilds[i + 1].errors;
+                let delta = 0;
+                if (e1.length > 0 && e2.length > 0) {
+                    delta += 8;
+                    let t1 = new Set(e1.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+                    let t2 = new Set(e2.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+                    let shared = new Set([...t1].filter(x => t2.has(x)));
+                    if (shared.size > 0) delta += 3;
+                }
+                score += delta / 11;
+            }
+            studentEq = score / pairs;
+        }
+
+        // recompute RED from merged builds
+        let studentRed = null;
+        if (allBuilds.length >= 2) {
+            let red = 0, divisor = 0, repeated = 0;
+            for (let i = 1; i < allBuilds.length; i++) {
+                divisor++;
+                let t1 = new Set(allBuilds[i - 1].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+                let t2 = new Set(allBuilds[i].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+                let shared = new Set([...t1].filter(x => t2.has(x)));
+                if (shared.size > 0) {
+                    repeated++;
+                } else {
+                    if (repeated > 0) red += (repeated ** 2) / (repeated + 1);
+                    repeated = 0;
+                }
+            }
+            if (repeated > 0) red += (repeated ** 2) / (repeated + 1);
+            studentRed = divisor > 0 ? red / divisor : null;
+        }
+
+        // sum counts across all files
+        let studentCompileErrors = 0, studentRuntimeErrors = 0, studentFailedBuilds = 0;
+        for (let g of group) {
+            studentCompileErrors += parseInt(g.csv['compile error count']) || 0;
+            studentRuntimeErrors += parseInt(g.csv['runtime error count']) || 0;
+            studentFailedBuilds += parseInt(g.csv['failed build count']) || 0;
+        }
+
+        if (studentEq !== null) eqValues.push(studentEq);
+        if (studentRed !== null) redValues.push(studentRed);
+        totalCompileErrors += studentCompileErrors;
+        totalRuntimeErrors += studentRuntimeErrors;
 
         studentRows.push({
             name: sanitizeName(studentName),
-            entryId: entryId,
-            eq: isNaN(eq) ? null : eq,
-            red: isNaN(red) ? null : red,
-            failedBuilds: parseInt(csv['failed build count']) || 0,
-            compileErrors: parseInt(csv['compile error count']) || 0
+            entryId: entryIds[0],
+            eq: studentEq,
+            red: studentRed,
+            failedBuilds: studentFailedBuilds,
+            compileErrors: studentCompileErrors
         });
 
-        if (files[entryId] && files[entryId]['errorAnalysis']) {
-            let events = files[entryId]['errorAnalysis'].errorEvents;
-            for (let e of events) {
-                let target = e.phase === 'compile' ? compileErrorCats : runtimeErrorCats;
-                if (!target[e.error_category]) {
-                    target[e.error_category] = { count: 0, students: new Set() };
-                }
-                target[e.error_category].count++;
-                target[e.error_category].students.add(studentName);
-                if (e.error_category === 'other') {
-                    let otherTarget = e.phase === 'compile' ? otherCompileTypes : otherRuntimeTypes;
-                    if (!otherTarget[e.error_type]) {
-                        otherTarget[e.error_type] = { count: 0, students: new Set() };
+        // aggregate error categories across all files for this student
+        for (let eid of entryIds) {
+            if (files[eid] && files[eid]['errorAnalysis']) {
+                let events = files[eid]['errorAnalysis'].errorEvents;
+                for (let e of events) {
+                    let target = e.phase === 'compile' ? compileErrorCats : runtimeErrorCats;
+                    if (!target[e.error_category]) {
+                        target[e.error_category] = { count: 0, students: new Set() };
                     }
-                    otherTarget[e.error_type].count++;
-                    otherTarget[e.error_type].students.add(studentName);
+                    target[e.error_category].count++;
+                    target[e.error_category].students.add(studentName);
+                    if (e.error_category === 'other') {
+                        let otherTarget = e.phase === 'compile' ? otherCompileTypes : otherRuntimeTypes;
+                        if (!otherTarget[e.error_type]) {
+                            otherTarget[e.error_type] = { count: 0, students: new Set() };
+                        }
+                        otherTarget[e.error_type].count++;
+                        otherTarget[e.error_type].students.add(studentName);
+                    }
                 }
             }
+
         }
 
-        if (files[entryId] && files[entryId]['timeToFix']) {
-            for (let t of files[entryId]['timeToFix']) {
-                if (!ttfByCategory[t.category]) {
-                    ttfByCategory[t.category] = { fixTimes: [], unfixed: 0, isOther: t.isOther || false };
+        // recompute time to fix from merged builds 
+        if (allBuilds.length >= 2) {
+            let fixTimesByCategory = {};
+            for (let i = 0; i < allBuilds.length; i++) {
+                let catOrigin = {};
+                for (let e of allBuilds[i].errors) {
+                    let key = e.error_category === 'other' ? e.error_type : e.error_category;
+                    catOrigin[key] = e.error_category;
                 }
-                if (t.medianSeconds !== null) {
-                    ttfByCategory[t.category].fixTimes.push(t.medianSeconds);
+                let categories = new Set(Object.keys(catOrigin));
+                if (categories.size === 0) continue;
+                let prevCategories = i > 0 ? new Set(allBuilds[i - 1].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category)) : new Set();
+                for (let cat of categories) {
+                    if (i > 0 && prevCategories.has(cat)) continue;
+                    let resolved = false;
+                    for (let j = i + 1; j < allBuilds.length; j++) {
+                        let jCats = new Set(allBuilds[j].errors.map(e => e.error_category === 'other' ? e.error_type : e.error_category));
+                        if (!jCats.has(cat)) {
+                            let fixTime = (new Date(allBuilds[j].time) - new Date(allBuilds[i].time)) / 1000;
+                            if (!fixTimesByCategory[cat]) fixTimesByCategory[cat] = { fixed: [], unfixed: 0, isOther: catOrigin[cat] === 'other' };
+                            fixTimesByCategory[cat].fixed.push(fixTime);
+                            resolved = true;
+                            break;
+                        }
+                    }
+                    if (!resolved) {
+                        if (!fixTimesByCategory[cat]) fixTimesByCategory[cat] = { fixed: [], unfixed: 0, isOther: catOrigin[cat] === 'other' };
+                        fixTimesByCategory[cat].unfixed++;
+                    }
                 }
-                ttfByCategory[t.category].unfixed += t.unfixedCount;
+            }
+            for (let cat in fixTimesByCategory) {
+                let times = fixTimesByCategory[cat].fixed;
+                let medianSeconds = null;
+                if (times.length > 0) {
+                    times.sort((a, b) => a - b);
+                    let mid = Math.floor(times.length / 2);
+                    medianSeconds = times.length % 2 !== 0 ? times[mid] : (times[mid - 1] + times[mid]) / 2;
+                }
+                if (!ttfByCategory[cat]) {
+                    ttfByCategory[cat] = { fixTimes: [], unfixed: 0, isOther: fixTimesByCategory[cat].isOther };
+                }
+                if (medianSeconds !== null) ttfByCategory[cat].fixTimes.push(medianSeconds);
+                ttfByCategory[cat].unfixed += fixTimesByCategory[cat].unfixed;
             }
         }
     }
@@ -554,20 +660,8 @@ function generateClassOverview() {
         return b.eq - a.eq;
     });
 
-    let studentRowsHtml = '';
-    for (let s of studentRows) {
-        let bgColor = '';
-        if (s.eq !== null) {
-            bgColor = s.eq >= 0.6 ? 'background-color:#f8d7da;' : s.eq >= 0.3 ? 'background-color:#fff3cd;' : 'background-color:#d4edda;';
-        }
-        let eqDisplay = s.eq !== null ? s.eq.toFixed(3) : '';
-        let redDisplay = s.red !== null ? s.red.toFixed(3) : '';
-        let nameLink = `<a href="#" onclick="scrollToStudent('${s.entryId}'); return false;" style="text-decoration:underline;">${s.name}</a>`;
-        studentRowsHtml += `<tr style="${bgColor}">
-            <td>${nameLink}</td><td>${eqDisplay}</td><td>${redDisplay}</td>
-            <td>${s.failedBuilds}</td><td>${s.compileErrors}</td>
-        </tr>`;
-    }
+    window._overviewStudentRows = studentRows;
+    let studentRowsHtml = renderStudentTableRows(studentRows);
 
     let studentsTableHtml = `
         <div class="analysed-panel-btn-block">
@@ -576,9 +670,15 @@ function generateClassOverview() {
             </a>
             <div class="collapse" id="collapseStudentEq-overview">
                 <div class="card card-body">
-                    <table class="table table-sm table-hover">
-                        <thead><tr><th>Student</th><th>EQ</th><th>RED</th><th>Failed Builds</th><th>Compile Errors</th></tr></thead>
-                        <tbody>${studentRowsHtml}</tbody>
+                    <table class="table table-sm table-hover" id="student-overview-table">
+                        <thead><tr>
+                            <th>Student</th>
+                            <th style="cursor:pointer;" onclick="sortStudentTable('eq')">EQ</th>
+                            <th style="cursor:pointer;" onclick="sortStudentTable('red')">RED</th>
+                            <th style="cursor:pointer;" onclick="sortStudentTable('failedBuilds')">Failed Builds</th>
+                            <th style="cursor:pointer;" onclick="sortStudentTable('compileErrors')">Compile Errors</th>
+                        </tr></thead>
+                        <tbody id="student-overview-tbody">${studentRowsHtml}</tbody>
                     </table>
                 </div>
             </div>
@@ -626,6 +726,32 @@ function scrollToStudent(entryId) {
         listItem.click();
         listItem[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+}
+
+function renderStudentTableRows(rows) {
+    let html = '';
+    for (let s of rows) {
+        let eqDisplay = s.eq !== null ? s.eq.toFixed(3) : '';
+        let redDisplay = s.red !== null ? s.red.toFixed(3) : '';
+        let nameLink = `<a href="#" onclick="scrollToStudent('${s.entryId}'); return false;" style="text-decoration:underline;">${s.name}</a>`;
+        html += `<tr>
+            <td>${nameLink}</td><td>${eqDisplay}</td><td>${redDisplay}</td>
+            <td>${s.failedBuilds}</td><td>${s.compileErrors}</td>
+        </tr>`;
+    }
+    return html;
+}
+
+function sortStudentTable(col) {
+    let rows = window._overviewStudentRows;
+    rows.sort((a, b) => {
+        let va = a[col], vb = b[col];
+        if (va === null && vb === null) return 0;
+        if (va === null) return 1;
+        if (vb === null) return -1;
+        return vb - va;
+    });
+    $('#student-overview-tbody').html(renderStudentTableRows(rows));
 }
 
 function getLogFile() {
