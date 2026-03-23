@@ -351,10 +351,12 @@ function generateClassOverview() {
         }
         allBuilds.sort((a, b) => new Date(a.time) - new Date(b.time));
 
-        // recompute eq and red from merged builds across all files for this student
-        // time-to-fix stays since cross-session time gaps would inflate fix times
+        // minimum 5 builds to compute eq/red, unless last build failed (student gave up with unresolved errors)
+        let lastBuildFailed = allBuilds.length > 0 && allBuilds[allBuilds.length - 1].success === false;
+        let enoughBuilds = allBuilds.length >= 5 || (allBuilds.length >= 2 && lastBuildFailed);
+
         let studentEq = null;
-        if (allBuilds.length >= 2) {
+        if (allBuilds.length >= 2 && enoughBuilds) {
             let score = 0;
             let pairs = allBuilds.length - 1;
             for (let i = 0; i < pairs; i++) {
@@ -375,7 +377,7 @@ function generateClassOverview() {
 
         // recompute RED from merged builds
         let studentRed = null;
-        if (allBuilds.length >= 2) {
+        if (allBuilds.length >= 2 && enoughBuilds) {
             let red = 0, divisor = 0, repeated = 0;
             for (let i = 1; i < allBuilds.length; i++) {
                 divisor++;
@@ -1125,7 +1127,11 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         compile_pairs.push([i, i + 1]);
     }
 
-    if (compile_pairs.length > 0) {
+    // minimum 5 builds to compute eq/red, unless last build failed (student gave up with unresolved errors)
+    let lastBuildFailed = builds.length > 0 && builds[builds.length - 1].success === false;
+    let enoughBuilds = builds.length >= 5 || (builds.length >= 2 && lastBuildFailed);
+
+    if (compile_pairs.length > 0 && enoughBuilds) {
         let score = 0;
         for (let pair of compile_pairs) {
             let e1 = pair[0];
@@ -1157,7 +1163,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     let redScore = null;
     let redDetails = [];
 
-    if (builds.length >= 2) {
+    if (builds.length >= 2 && enoughBuilds) {
         let red = 0;
         let divisor = 0;
         let repeated = 0;
