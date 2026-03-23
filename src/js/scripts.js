@@ -492,13 +492,14 @@ function generateClassOverview() {
 
     let avgEq = eqValues.length > 0 ? (eqValues.reduce((a, b) => a + b, 0) / eqValues.length) : null;
     let avgRed = redValues.length > 0 ? (redValues.reduce((a, b) => a + b, 0) / redValues.length) : null;
-    let avgEqLabel = avgEq !== null ? (avgEq < 0.3 ? 'Low' : avgEq < 0.6 ? 'Medium' : 'High') : '';
+    let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how much of the programming session was spent stuck on errors. Compares consecutive compilations. If both fail with the same error type, the score increases.<br><br>0 = errors resolved efficiently<br>1 = repeatedly stuck on the same errors<br><br>Requires at least 5 compilations to calculate.';
+    let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how often the same error type appears in consecutive compilations without being fixed. Higher values mean longer chains of repeated errors.';
 
     let summaryHtml = `
         <div class="d-flex flex-wrap" style="gap:16px; margin-bottom:20px;">
             <div class="stat-item"><strong>${totalStudents}</strong><br><small>Students</small></div>
-            <div class="stat-item"><strong>${avgEq !== null ? avgEq.toFixed(3) + ' (' + avgEqLabel + ')' : 'N/A'}</strong><br><small>Avg EQ</small></div>
-            <div class="stat-item"><strong>${avgRed !== null ? avgRed.toFixed(3) : 'N/A'}</strong><br><small>Avg RED</small></div>
+            <div class="stat-item" style="position:relative;display:inline-block;"><strong>${avgEq !== null ? avgEq.toFixed(3) : 'N/A'}</strong><br><small>Avg EQ <a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="${eqTooltip}"><i class="fa fa-info-circle" style="color:#007bff; margin-left:4px;"></i></a></small></div>
+            <div class="stat-item" style="position:relative;display:inline-block;"><strong>${avgRed !== null ? avgRed.toFixed(3) : 'N/A'}</strong><br><small>Avg RED <a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="${redTooltip}"><i class="fa fa-info-circle" style="color:#007bff; margin-left:4px;"></i></a></small></div>
             <div class="stat-item"><strong>${totalCompileErrors}</strong><br><small>Compile Errors</small></div>
             <div class="stat-item"><strong>${totalRuntimeErrors}</strong><br><small>Runtime Errors</small></div>
         </div>`;
@@ -703,6 +704,7 @@ function generateClassOverview() {
         </div>`;
 
     $('#log-analysis-results').prepend(overviewHtml);
+    $('#class-overview [data-toggle="popover"]').popover({ trigger: 'focus' });
     $('#class-overview-btn').prop('disabled', false);
     showClassOverview();
 }
@@ -1310,12 +1312,15 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         generalInfo['Compile errors'] = compileErrorCount;
         generalInfo['Runtime errors'] = runtimeErrorCount;
     }
+    let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how much of the programming session was spent stuck on errors. Compares consecutive compilations. If both fail with the same error type, the score increases.<br><br>0 = errors resolved efficiently<br>1 = repeatedly stuck on the same errors<br><br>Requires at least 5 compilations to calculate.';
+    let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how often the same error type appears in consecutive compilations without being fixed. Higher values mean longer chains of repeated errors.';
+    let eqPopover = '<a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="' + eqTooltip + '"><i class="fa fa-info-circle" style="color:#007bff; margin-left:4px;"></i></a>';
+    let redPopover = '<a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="' + redTooltip + '"><i class="fa fa-info-circle" style="color:#007bff; margin-left:4px;"></i></a>';
     if (eqScore !== null) {
-        let eqLabel = eqScore < 0.3 ? 'Low' : eqScore < 0.6 ? 'Medium' : 'High';
-        generalInfo['EQ (Error Quotient)'] = eqScore.toFixed(3) + ' (' + eqLabel + ')';
+        generalInfo['EQ (Error Quotient) ' + eqPopover] = eqScore.toFixed(3);
     }
     if (redScore !== null) {
-        generalInfo['RED (Repeated Error Density)'] = redScore.toFixed(3);
+        generalInfo['RED (Repeated Error Density) ' + redPopover] = redScore.toFixed(3);
     }
     if (timeToFix.length > 0) {
         let allFixedTimes = timeToFix.filter(t => t.medianSeconds !== null).map(t => t.medianSeconds);
@@ -1606,6 +1611,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     $('#'+panelId).append(textGraphButton);
 
     displayDataTable(idGeneralInfo,generalInfo);
+    $('#' + panelId + ' [data-toggle="popover"]').popover({ trigger: 'focus' });
     displayDataTable(idCopyPaste,pasted.texts);
     $('#btn-open-replayer-'+entryId).click(readAnalysedFile);
     $('#btn-open-text-graph-'+entryId).click(readAnalysedFile);
