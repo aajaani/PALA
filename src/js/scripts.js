@@ -11,6 +11,7 @@ var errorAnalysing=[];
 var textGraphDataLog={};
 var csvValues=[];
 var filesParsed=0;
+var pendingAnalyses=0;
 var similarityDataAllFiles={};
 var similarityAnalysisResults={};
 
@@ -782,14 +783,17 @@ function fileSubmit(){
     errorAnalysing=[];
     csvValues=[];
     errorAnalysing=[];
+    pendingAnalyses=0;
     similarityDataAllFiles={};
     $('#alert-expand-control').alert('close');
     $('#compare-button').prop('disabled', true);
 
     for(i=0;i<logInput[0].files.length;i++){
         if (logInput[0].files[i].type==='text/plain' && logInput[0].files[i].name.includes(".txt")){ //if text file
+            pendingAnalyses++;
             readObject( logInput[0].files[i], i,"analyse","",false);
         }else if (supportedArchiveTypes.includes(logInput[0].files[i].type)){ //if zip file
+            pendingAnalyses++;
             parseZipFile( i, logInput[0].files[i], logInput[0].files[i].webkitRelativePath);
         }else{ //wrong type
             if(!logInput[0].files[i].name.includes("veebitekst.html")){
@@ -799,11 +803,9 @@ function fileSubmit(){
     }
 
     setTimeout(() => {
-        $('#compare-button').prop('disabled', false); //enable similarity analysis button
-
         if(errorAnalysing.length>0){
             var tableErrors=`
-            <div id='alert-expand-control' class="alert alert-warning alert-dismissible fade show" 
+            <div id='alert-expand-control' class="alert alert-warning alert-dismissible fade show"
             data-toggle="collapse" href="#alert-expand-body" aria-expanded="false" aria-controls="alert-expand-body" role="alert">
                 <strong >Errors analysing files</strong>
                 <button type="button" class="close" data-dismiss="alert" aria-label="Close">
@@ -821,12 +823,18 @@ function fileSubmit(){
                 $('#alert-error-list').append(`<li>${errorAnalysing[i]}</li>`);
             }
         }
+    }, 3000);
 
+}
+
+function onAnalysisComplete(){
+    pendingAnalyses--;
+    if(pendingAnalyses===0){
+        $('#compare-button').prop('disabled', false);
         if($("#input-analysis-type")[0].checked && csvValues.length > 0) {
             generateClassOverview();
         }
-    }, 5000);
-
+    }
 }
 
 
@@ -843,8 +851,10 @@ function parseZipFile(entryId, zipFile, path=''){
         let files = zip.file(/.*/); //all files in array ZipObjects
         for (let i=0;i<files.length;i++){
             if( RegExp('\.txt').test(files[i].name)){ //text file
+                pendingAnalyses++;
                 readObject( files[i], entryId+'-'+i, "analyse", path, true);
             }else if(RegExp('\.zip').test(files[i].name)){
+                pendingAnalyses++;
                 files[i].async("blob")
                 .then(function (file) {
                     if(path!==''){
@@ -858,6 +868,7 @@ function parseZipFile(entryId, zipFile, path=''){
                 }
             }
         }
+        onAnalysisComplete();
     });
 }
 
@@ -1637,6 +1648,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     files[entryId]['fileAnalysisResults']=fileAnalysisResults;
     files[entryId]['errorAnalysis']={builds, runs, errorEvents};
     files[entryId]['timeToFix'] = timeToFix;
+    onAnalysisComplete();
 }
 
 /**
