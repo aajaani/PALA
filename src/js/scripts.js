@@ -492,8 +492,8 @@ function generateClassOverview() {
 
     let avgEq = eqValues.length > 0 ? (eqValues.reduce((a, b) => a + b, 0) / eqValues.length) : null;
     let avgRed = redValues.length > 0 ? (redValues.reduce((a, b) => a + b, 0) / redValues.length) : null;
-    let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how much of the programming session was spent stuck on errors. Compares consecutive compilations. If both fail with the same error type, the score increases.<br><br>0 = errors resolved efficiently<br>1 = repeatedly stuck on the same errors<br><br>Requires at least 5 compilations to calculate.';
-    let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how often the same error type appears in consecutive compilations without being fixed. Higher values mean longer chains of repeated errors.';
+    let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how effectively a student resolves compilation errors. A low score means errors are fixed quickly; a high score means the student keeps compiling with the same unresolved errors.<br><br>Scored 0–1 by comparing consecutive compilation pairs: if both fail and share the same error type, the score increases.<br><br>Requires at least 5 compilations.';
+    let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how persistently the same error recurs across consecutive compilations. Unlike EQ, RED distinguishes between an error that repeats once and one that repeats many times in a row, longer unbroken chains score disproportionately higher.<br><br>Requires at least 5 compilations.';
 
     let summaryHtml = `
         <div class="d-flex flex-wrap" style="gap:16px; margin-bottom:20px;">
@@ -623,7 +623,7 @@ function generateClassOverview() {
                 </a>
                 <div class="collapse" id="collapseHardestErrors-overview">
                     <div class="card card-body">
-                        <p>Class-wide median time-to-fix per error category, aggregated across all students.</p>
+                        <p>Median time-to-fix per error category, aggregated across all students.</p>
                         <div class="form-inline mb-2">
                             <label class="mr-2" style="font-size:13px;">Min. occurrences:</label>
                             <select id="ttf-min-occurrences" class="form-control form-control-sm" onchange="filterTtfTable()">
@@ -1188,7 +1188,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     // EQ (Error Quotient) — Jadud 2006
     // Algorithm reference: Price et al. (2020), https://github.com/thomaswp/ProgSnap2Analysis/blob/master/eq.py, adapted for PALG logs
     let eqScore = null;
-
+    
     // extract compile pairs — consecutive pairs from all builds
     let compile_pairs = [];
     for (let i = 0; i < builds.length - 1; i++) {
@@ -1369,8 +1369,8 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     } else {
         generalInfo['Error count'] = errors.total;
     }
-    let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how much of the programming session was spent stuck on errors. Compares consecutive compilations. If both fail with the same error type, the score increases.<br><br>0 = errors resolved efficiently<br>1 = repeatedly stuck on the same errors<br><br>Requires at least 5 compilations to calculate.';
-    let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how often the same error type appears in consecutive compilations without being fixed. Higher values mean longer chains of repeated errors.';
+    let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how effectively a student resolves compilation errors. A low score means errors are fixed quickly; a high score means the student keeps compiling with the same unresolved errors.<br><br>Scored 0–1 by comparing consecutive compilation pairs: if both fail and share the same error type, the score increases.<br><br>Requires at least 5 compilations.';
+    let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how persistently the same error recurs across consecutive compilations. Unlike EQ, RED distinguishes between an error that repeats once and one that repeats many times in a row, longer unbroken chains score disproportionately higher.<br><br>Requires at least 5 compilations.';
     let eqPopover = '<a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="' + eqTooltip + '"><i class="fa fa-info-circle" style="color:#007bff; margin-left:4px;"></i></a>';
     let redPopover = '<a tabindex="0" role="button" data-toggle="popover" data-trigger="focus" data-html="true" data-content="' + redTooltip + '"><i class="fa fa-info-circle" style="color:#007bff; margin-left:4px;"></i></a>';
     if (eqScore !== null) {
@@ -1543,14 +1543,10 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableRedDetails = '';
     if (redDetails.length > 0) {
         let redRowsHtml = '';
-        let redOtherIdx = 0;
         for (let d of redDetails) {
             let categoryDisplay;
-            // show "other [details]" instead of the raw java error string
             if (d.isOther) {
-                let collapseId = `collapseRedOther-${entryId}-${redOtherIdx++}`;
-                categoryDisplay = `other <a data-toggle="collapse" href="#${collapseId}" style="font-size:11px;">[details]</a>
-                    <div class="collapse" id="${collapseId}"><small>${sanitizeName(d.category)}</small></div>`;
+                categoryDisplay = `other | <i><small>${sanitizeName(d.category || '')}</small></i>`;
             } else {
                 categoryDisplay = d.category;
             }
@@ -1566,7 +1562,7 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
                 </a>
                 <div class="collapse" id="collapseRedDetails-${entryId}">
                     <div class="card card-body">
-                        <p>Overall RED: <strong>${redScore.toFixed(3)}</strong> — normalized by number of compilation pairs. Higher values indicate more consecutive repetition of the same errors (Becker, 2016).</p>
+                    <p>Overall RED ${redPopover}: <strong>${redScore.toFixed(3)}</strong><br>This score reflects how persistently errors recurred across consecutive compilations. The table below breaks down which specific error categories contributed, showing how many consecutive compilation pairs each error appeared in.</p>
                         <table class="table table-sm">
                         <thead><tr><th>Error Category</th><th>Repeated Pairs</th></tr></thead>
                         <tbody>${redRowsHtml}</tbody>
@@ -1580,15 +1576,11 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
     var tableTimeToFix = '';
     if (timeToFix.length > 0) {
         let ttfRowsHtml = '';
-        let ttfOtherIdx = 0;
         for (let t of timeToFix) {
             let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
             let categoryDisplay;
-            // show "other [details]" instead of the raw java error string
             if (t.isOther) {
-                let collapseId = `collapseTtfOther-${entryId}-${ttfOtherIdx++}`;
-                categoryDisplay = `other <a data-toggle="collapse" href="#${collapseId}" style="font-size:11px;">[details]</a>
-                    <div class="collapse" id="${collapseId}"><small>${sanitizeName(t.category)}</small></div>`;
+                categoryDisplay = `other | <i><small>${sanitizeName(t.category || '')}</small></i>`;
             } else {
                 categoryDisplay = t.category;
             }
