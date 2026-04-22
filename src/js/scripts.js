@@ -518,10 +518,10 @@ function generateClassOverview() {
         arr.sort((a, b) => b.count - a.count);
         if (arr.length === 0) return '';
 
-        let visibleRows = '';
-        let hiddenRows = '';
+        let allRows = '';
         for (let i = 0; i < arr.length; i++) {
             let e = arr[i];
+            let hiddenAttr = i >= 15 ? ` class="error-table-hidden-row" style="display:none;"` : '';
             let row;
             if (e.category === 'other' && otherTypesObj && Object.keys(otherTypesObj).length > 0) {
                 let otherList = '<table class="table table-sm table-hover mb-0" style="font-size:12px;">'
@@ -532,17 +532,16 @@ function generateClassOverview() {
                         .join('')
                     + '</tbody></table>';
                 let detailsId = `${collapseIdPrefix}-other-details`;
-                row = `<tr><td>${e.category} <a data-toggle="collapse" href="#${detailsId}" style="font-size:11px;">[details]</a>
+                row = `<tr${hiddenAttr}><td>${e.category} <a data-toggle="collapse" href="#${detailsId}" style="font-size:11px;">[details]</a>
                     <div class="collapse" id="${detailsId}">${otherList}</div></td>
                     <td>${e.count}</td><td>${e.studentCount}</td><td>${e.pct}%</td></tr>`;
             } else {
-                row = `<tr><td>${e.category}</td><td>${e.count}</td><td>${e.studentCount}</td><td>${e.pct}%</td></tr>`;
+                row = `<tr${hiddenAttr}><td>${e.category}</td><td>${e.count}</td><td>${e.studentCount}</td><td>${e.pct}%</td></tr>`;
             }
-            if (i < 15) visibleRows += row;
-            else hiddenRows += row;
+            allRows += row;
         }
-        let showAllBtn = hiddenRows ? `
-            <a class="btn btn-sm btn-outline-secondary mt-2" data-toggle="collapse" href="#${collapseIdPrefix}-all">
+        let showAllBtn = arr.length > 15 ? `
+            <a class="btn btn-sm btn-outline-secondary mt-2" href="#" onclick="$(this).closest('.card-body').find('.error-table-hidden-row').show(); $(this).hide(); return false;">
                 Show all (${arr.length})
             </a>` : '';
         return `
@@ -554,11 +553,9 @@ function generateClassOverview() {
                     <div class="card card-body">
                         <table class="table table-sm table-hover">
                             <thead><tr><th>Error Category</th><th>Occurrences</th><th>Students</th><th>% of Class</th></tr></thead>
-                            <tbody>${visibleRows}</tbody>
+                            <tbody>${allRows}</tbody>
                         </table>
-                        ${hiddenRows ? `<div class="collapse" id="${collapseIdPrefix}-all">
-                            <table class="table table-sm table-hover"><tbody>${hiddenRows}</tbody></table>
-                        </div>${showAllBtn}` : ''}
+                        ${showAllBtn}
                     </div>
                 </div>
             </div>`;
@@ -593,25 +590,17 @@ function generateClassOverview() {
         return b.medianSeconds - a.medianSeconds;
     });
 
-    // merge all "other" time-to-fix entries into one row for the class view (having the student specific "other" errors messes with aggregate view)
-    // keep top 10 by fix time in a details dropdown
+    // merge all "other" time-to-fix entries into one aggregate row for the class view
     let otherTtf = ttfArray.filter(t => t.isOther);
     let normalTtf = ttfArray.filter(t => !t.isOther);
+    let otherRow = null;
     if (otherTtf.length > 0) {
-        let allTimes = otherTtf.filter(e => e.medianSeconds !== null).map(e => e.medianSeconds);
-        let otherMedian = null;
-        if (allTimes.length > 0) {
-            allTimes.sort((a, b) => a - b);
-            let mid = Math.floor(allTimes.length / 2);
-            otherMedian = allTimes.length % 2 !== 0 ? allTimes[mid] : (allTimes[mid - 1] + allTimes[mid]) / 2;
-        }
-        normalTtf.push({
-            category: 'other', medianSeconds: otherMedian,
+        otherRow = {
+            category: 'other', medianSeconds: null,
             count: otherTtf.reduce((s, e) => s + e.count, 0),
             unfixed: otherTtf.reduce((s, e) => s + e.unfixed, 0),
-            isOther: false,
-            otherDetails: otherTtf.sort((a, b) => (b.medianSeconds || 0) - (a.medianSeconds || 0)).slice(0, 10)
-        });
+            otherDetails: otherTtf.sort((a, b) => (b.medianSeconds || 0) - (a.medianSeconds || 0))
+        };
         ttfArray = normalTtf;
         ttfArray.sort((a, b) => {
             if (a.medianSeconds === null && b.medianSeconds === null) return 0;
@@ -621,24 +610,12 @@ function generateClassOverview() {
         });
     }
 
+    // Store ttf data globally for sorting/filtering
+    window._overviewTtfArray = ttfArray;
+    window._overviewTtfOtherRow = otherRow;
+
     let hardestErrorsHtml = '';
-    if (ttfArray.length > 0) {
-        let ttfRowsHtml = '';
-        for (let t of ttfArray) {
-            let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
-            let categoryDisplay = t.category;
-            if (t.otherDetails && t.otherDetails.length > 0) {
-                let detailRows = t.otherDetails.map(d =>
-                    `<tr><td>${sanitizeName(d.category)}</td><td>${d.medianSeconds !== null ? formatSeconds(d.medianSeconds) : '—'}</td><td>${d.count}</td></tr>`
-                ).join('');
-                let detailTable = '<table class="table table-sm mb-0" style="font-size:12px;">'
-                    + '<thead><tr><th>Error</th><th>Median Fix Time</th><th>Occurrences</th></tr></thead>'
-                    + '<tbody>' + detailRows + '</tbody></table>';
-                categoryDisplay = `other <a data-toggle="collapse" href="#collapseTtfOther-overview" style="font-size:11px;">[details]</a>
-                    <div class="collapse" id="collapseTtfOther-overview">${detailTable}</div>`;
-            }
-            ttfRowsHtml += `<tr><td>${categoryDisplay}</td><td>${medianDisplay}</td><td>${t.count}</td><td>${t.unfixed > 0 ? t.unfixed : ''}</td></tr>`;
-        }
+    if (ttfArray.length > 0 || otherRow) {
         hardestErrorsHtml = `
             <div class="analysed-panel-btn-block">
                 <a class="btn btn-primary" data-toggle="collapse" href="#collapseHardestErrors-overview">
@@ -647,9 +624,23 @@ function generateClassOverview() {
                 <div class="collapse" id="collapseHardestErrors-overview">
                     <div class="card card-body">
                         <p>Class-wide median time-to-fix per error category, aggregated across all students.</p>
-                        <table class="table table-sm table-hover">
-                            <thead><tr><th>Error Category</th><th>Median Fix Time</th><th>Occurrences</th><th>Unfixed</th></tr></thead>
-                            <tbody>${ttfRowsHtml}</tbody>
+                        <div class="form-inline mb-2">
+                            <label class="mr-2" style="font-size:13px;">Min. occurrences:</label>
+                            <select id="ttf-min-occurrences" class="form-control form-control-sm" onchange="filterTtfTable()">
+                                <option value="0">All</option>
+                                <option value="3" selected>&ge;3</option>
+                                <option value="5">&ge;5</option>
+                                <option value="10">&ge;10</option>
+                            </select>
+                        </div>
+                        <table class="table table-sm table-hover" id="hardest-errors-table">
+                            <thead><tr>
+                                <th style="cursor:pointer;" onclick="sortTtfTable('category')">Error Category</th>
+                                <th style="cursor:pointer;" onclick="sortTtfTable('medianSeconds')">Median Fix Time</th>
+                                <th style="cursor:pointer;" onclick="sortTtfTable('count')">Occurrences</th>
+                                <th style="cursor:pointer;" onclick="sortTtfTable('unfixed')">Unfixed</th>
+                            </tr></thead>
+                            <tbody id="hardest-errors-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -705,6 +696,7 @@ function generateClassOverview() {
 
     $('#log-analysis-results').prepend(overviewHtml);
     $('#class-overview [data-toggle="popover"]').popover({ trigger: 'focus' });
+    filterTtfTable();
     $('#class-overview-btn').prop('disabled', false);
     showClassOverview();
 }
@@ -757,6 +749,69 @@ function sortStudentTable(col) {
         return vb - va;
     });
     $('#student-overview-tbody').html(renderStudentTableRows(rows));
+}
+
+function renderTtfRows(rows, otherRow) {
+    let html = '';
+    let min = parseInt($('#ttf-min-occurrences').val()) || 0;
+    // "other" row always renders first, pinned at top
+    if (otherRow) {
+        let filteredDetails = otherRow.otherDetails || [];
+        if (min > 0) filteredDetails = filteredDetails.filter(d => d.count >= min);
+        let otherCount = filteredDetails.reduce((s, d) => s + d.count, 0);
+        let otherUnfixed = filteredDetails.reduce((s, d) => s + d.unfixed, 0);
+        let categoryDisplay = otherRow.category;
+        if (filteredDetails.length > 0) {
+            let detailRows = filteredDetails.map(d =>
+                `<tr><td>${sanitizeName(d.category)}</td><td>${d.medianSeconds !== null ? formatSeconds(d.medianSeconds) : '—'}</td><td>${d.count}</td></tr>`
+            ).join('');
+            let detailTable = '<table class="table table-sm mb-0" style="font-size:12px;">'
+                + '<thead><tr><th>Error</th><th>Median Fix Time</th><th>Occurrences</th></tr></thead>'
+                + '<tbody>' + detailRows + '</tbody></table>';
+            categoryDisplay = `other <a data-toggle="collapse" href="#collapseTtfOther-overview" style="font-size:11px;">[details]</a>
+                <div class="collapse" id="collapseTtfOther-overview">${detailTable}</div>`;
+        }
+        html += `<tr><td>${categoryDisplay}</td><td>—</td><td>${otherCount}</td><td>${otherUnfixed > 0 ? otherUnfixed : ''}</td></tr>`;
+    }
+    for (let t of rows) {
+        let medianDisplay = t.medianSeconds !== null ? formatSeconds(t.medianSeconds) : '—';
+        html += `<tr><td>${t.category}</td><td>${medianDisplay}</td><td>${t.count}</td><td>${t.unfixed > 0 ? t.unfixed : ''}</td></tr>`;
+    }
+    return html;
+}
+
+function filterTtfTable() {
+    let min = parseInt($('#ttf-min-occurrences').val()) || 0;
+    let rows = window._overviewTtfArray || [];
+    let filtered = min > 0 ? rows.filter(t => t.count >= min) : rows;
+    $('#hardest-errors-tbody').html(renderTtfRows(filtered, window._overviewTtfOtherRow));
+}
+
+window._ttfSortCol = 'medianSeconds';
+window._ttfSortAsc = false;
+
+function sortTtfTable(col) {
+    let rows = window._overviewTtfArray || [];
+    if (window._ttfSortCol === col) {
+        window._ttfSortAsc = !window._ttfSortAsc;
+    } else {
+        window._ttfSortCol = col;
+        window._ttfSortAsc = false;
+    }
+    let asc = window._ttfSortAsc;
+    rows.sort((a, b) => {
+        let va = a[col], vb = b[col];
+        if (col === 'category') {
+            va = (va || '').toLowerCase();
+            vb = (vb || '').toLowerCase();
+            return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+        }
+        if (va === null && vb === null) return 0;
+        if (va === null) return 1;
+        if (vb === null) return -1;
+        return asc ? va - vb : vb - va;
+    });
+    filterTtfTable();
 }
 
 function getLogFile() {
@@ -1291,12 +1346,14 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         }
     }
 
+    let compileErrorCount = errorEvents.filter(e => e.phase === 'compile' && e.severity === 'error').length;
+    let runtimeErrorCount = errorEvents.filter(e => e.phase === 'runtime' && e.severity === 'error').length;
+
     var generalInfo={
         'Start time':startTime.toLocaleString('en-GB'),
         'End time':endTime.toLocaleString('en-GB'),
         'Elapsed time':elapsedTime,
         'Run count':runCount,
-        'Error count':errors.total,
         'Paste text count':pasted.total,
         'Debug count':debugCount,
         'Files created':[...filesCreated].join('<br>'),
@@ -1304,13 +1361,13 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'Files opened':[...filesOpened  ].join('<br>')
     }
 
-    let compileErrorCount = errorEvents.filter(e => e.phase === 'compile' && e.severity === 'error').length;
-    let runtimeErrorCount = errorEvents.filter(e => e.phase === 'runtime' && e.severity === 'error').length;
     if(buildCount > 0){
         generalInfo['Build count'] = buildCount;
         generalInfo['Failed builds'] = buildErrorCount;
         generalInfo['Compile errors'] = compileErrorCount;
         generalInfo['Runtime errors'] = runtimeErrorCount;
+    } else {
+        generalInfo['Error count'] = errors.total;
     }
     let eqTooltip = '<b>Error Quotient (Jadud, 2006)</b><br>Measures how much of the programming session was spent stuck on errors. Compares consecutive compilations. If both fail with the same error type, the score increases.<br><br>0 = errors resolved efficiently<br>1 = repeatedly stuck on the same errors<br><br>Requires at least 5 compilations to calculate.';
     let redTooltip = '<b>Repeated Error Density (Becker, 2016)</b><br>Measures how often the same error type appears in consecutive compilations without being fixed. Higher values mean longer chains of repeated errors.';
@@ -1624,12 +1681,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'end time':toISOStringLocalUTCOffset(endTime),
         'elapsed time': getDateTimeDiff(startTime,endTime),
         'run count':runCount,
-        'error count': errors.total,
-        'SyntaxError count':errors.syntaxError,
-        'TypeError count':errors.typeError,
-        'NameError count':errors.nameError,
-        'ValueError count':errors.valueError,
-        'AttributeError count':errors.attributeError,
         'paste count':pasted.total,
         'pasted character count':pasted.characterCount,
         'debug count':debugCount,
@@ -1644,6 +1695,14 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
         'time solving till first run (for each program)':"",
         'character count before first run (for each program)':"",
         'character count at the end (for each program)':""
+    }
+    if (buildCount === 0) {
+        fileAnalysisResults['error count'] = errors.total;
+        fileAnalysisResults['SyntaxError count'] = errors.syntaxError;
+        fileAnalysisResults['TypeError count'] = errors.typeError;
+        fileAnalysisResults['NameError count'] = errors.nameError;
+        fileAnalysisResults['ValueError count'] = errors.valueError;
+        fileAnalysisResults['AttributeError count'] = errors.attributeError;
     }
     if($("#input-analysis-type")[0].checked){ //multiple student analysis
         fileAnalysisResults = Object.assign({"foldername":nameObject.folderName}, fileAnalysisResults);
