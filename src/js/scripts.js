@@ -1139,7 +1139,6 @@ function analyse(jsonLog, file, entryId, path='', isZipObject = false){
             }
         }
         if(jsonLog[i].sequence==='RunStart'){
-            runCount++;
             runs.push({
                 run_id: jsonLog[i].run_id,
                 time: jsonLog[i].time,
